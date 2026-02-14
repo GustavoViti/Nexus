@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nexus • Login</title>
+  <link rel="stylesheet" href="./style/auth.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="auth">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Nexus</h1>
+          <p>Controle financeiro simples e rápido.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="header">
+          <h2>Entrar</h2>
+          <span>Use seu email e senha para acessar.</span>
+        </header>
+
+        <form class="form" id="loginForm">
+          <div class="field">
+            <label class="label" for="email">Email</label>
+            <input class="input" id="email" type="email" autocomplete="email" required />
+          </div>
+
+          <div class="field">
+            <label class="label" for="password">Senha</label>
+            <input class="input" id="password" type="password" autocomplete="current-password" required />
+          </div>
+
+          <div class="actions">
+            <button class="btn" id="btnLogin" type="submit">Entrar</button>
+          </div>
+
+          <div class="msg" id="msg"></div>
+        </form>
+
+        <div class="footer">
+          Não tem conta? <a class="link" href="./register.html">Criar agora</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./script/login.js"></script>
+</body>
+</html>

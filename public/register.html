@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nexus • Cadastro</title>
+  <link rel="stylesheet" href="./style/auth.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="auth">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Nexus</h1>
+          <p>Comece hoje a organizar seu dinheiro.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="header">
+          <h2>Criar conta</h2>
+          <span>Leva menos de 1 minuto.</span>
+        </header>
+
+        <form class="form" id="registerForm">
+          <div class="field">
+            <label class="label" for="name">Nome</label>
+            <input class="input" id="name" type="text" autocomplete="name" placeholder="Ex: Gustavo" />
+          </div>
+
+          <div class="field">
+            <label class="label" for="email">Email</label>
+            <input class="input" id="email" type="email" autocomplete="email" required />
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label class="label" for="password">Senha</label>
+              <input class="input" id="password" type="password" autocomplete="new-password" minlength="6" required />
+            </div>
+            <div class="field">
+              <label class="label" for="password2">Confirmar</label>
+              <input class="input" id="password2" type="password" autocomplete="new-password" minlength="6" required />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn" id="btnRegister" type="submit">Criar conta</button>
+            <a class="btn secondary" href="./index.html" role="button">Voltar</a>
+          </div>
+
+          <div class="msg" id="msg"></div>
+        </form>
+
+        <div class="footer">
+          Já tem conta? <a class="link" href="./index.html">Entrar</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./script/register.js"></script>
+</body>
+</html>

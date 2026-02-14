@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nexus • App</title>
+  <link rel="stylesheet" href="./style/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__left">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="brand__name">Nexus</div>
+          <div class="brand__sub" id="userLabel">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar__right">
+      <button class="iconbtn" id="btnOpenSettings" title="Configurações" aria-label="Configurações">⚙️</button>
+      <button class="iconbtn" id="btnLogout" title="Sair" aria-label="Sair">🚪</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Resumo (vai ficar zerado no começo) -->
+    <section class="summary">
+      <div class="summary__card">
+        <span class="muted">Saldo (mês)</span>
+        <strong id="sumBalance">R$ 0,00</strong>
+      </div>
+      <div class="summary__card">
+        <span class="muted">Entradas</span>
+        <strong class="pos" id="sumIncome">R$ 0,00</strong>
+      </div>
+      <div class="summary__card">
+        <span class="muted">Saídas</span>
+        <strong class="neg" id="sumExpense">R$ 0,00</strong>
+      </div>
+    </section>
+
+    <!-- Ações rápidas -->
+    <section class="actions">
+      <button class="btn" id="btnNewTx">+ Lançamento</button>
+      <button class="btn secondary" id="btnNewAccount">+ Conta</button>
+      <button class="btn secondary" id="btnNewCategory">+ Categoria</button>
+    </section>
+
+    <!-- Lista placeholder -->
+    <section class="list">
+      <div class="list__header">
+        <h2>Transações</h2>
+        <span class="muted" id="listHint">Crie sua primeira transação 👇</span>
+      </div>
+
+      <div class="empty" id="emptyState">
+        <div class="empty__title">Sem dados ainda</div>
+        <div class="empty__text">Crie uma conta e registre um lançamento pra começar.</div>
+      </div>
+
+      <div class="txlist" id="txList"></div>
+    </section>
+  </main>
+
+  <!-- MODAL: Nova Transação -->
+  <div class="modal" id="modalTx" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h3>Novo lançamento</h3>
+        <button class="iconbtn" data-close="modalTx" aria-label="Fechar">✕</button>
+      </div>
+
+      <form class="form" id="formTx">
+        <div class="segmented" role="tablist" aria-label="Tipo">
+          <button type="button" class="seg active" data-type="expense">Saída</button>
+          <button type="button" class="seg" data-type="income">Entrada</button>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label">Valor</label>
+            <input class="input" id="txAmount" inputmode="decimal" placeholder="Ex: 25,90" required />
+          </div>
+          <div class="field">
+            <label class="label">Data</label>
+            <input class="input" id="txDate" type="date" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">Descrição</label>
+          <input class="input" id="txDesc" placeholder="Ex: Mercado" required />
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label">Conta</label>
+            <select class="input" id="txAccount" required></select>
+          </div>
+          <div class="field">
+            <label class="label">Categoria</label>
+            <select class="input" id="txCategory" required></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">Observação (opcional)</label>
+          <input class="input" id="txNotes" placeholder="Ex: pago no débito" />
+        </div>
+
+        <button class="btn" id="btnSaveTx" type="submit">Salvar</button>
+        <div class="msg" id="msgTx"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Nova Conta -->
+  <div class="modal" id="modalAccount" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h3>Nova conta</h3>
+        <button class="iconbtn" data-close="modalAccount" aria-label="Fechar">✕</button>
+      </div>
+
+      <form class="form" id="formAccount">
+        <div class="field">
+          <label class="label">Nome</label>
+          <input class="input" id="accName" placeholder="Ex: Nubank / Dinheiro" required />
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label">Tipo</label>
+            <select class="input" id="accType" required>
+              <option value="bank">Banco</option>
+              <option value="cash">Dinheiro</option>
+              <option value="card">Cartão</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="label">Saldo inicial</label>
+            <input class="input" id="accInitial" inputmode="decimal" placeholder="Ex: 1000,00" />
+          </div>
+        </div>
+
+        <button class="btn" id="btnSaveAccount" type="submit">Salvar</button>
+        <div class="msg" id="msgAccount"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Nova Categoria -->
+  <div class="modal" id="modalCategory" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h3>Nova categoria</h3>
+        <button class="iconbtn" data-close="modalCategory" aria-label="Fechar">✕</button>
+      </div>
+
+      <form class="form" id="formCategory">
+        <div class="field">
+          <label class="label">Nome</label>
+          <input class="input" id="catName" placeholder="Ex: Alimentação" required />
+        </div>
+
+        <div class="field">
+          <label class="label">Tipo</label>
+          <div class="segmented">
+            <button type="button" class="seg active" data-cat-type="expense">Saída</button>
+            <button type="button" class="seg" data-cat-type="income">Entrada</button>
+          </div>
+        </div>
+
+        <button class="btn" id="btnSaveCategory" type="submit">Salvar</button>
+        <div class="msg" id="msgCategory"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Config -->
+  <div class="modal" id="modalSettings" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h3>Configurações</h3>
+        <button class="iconbtn" data-close="modalSettings" aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="settings">
+        <button class="btn secondary" id="btnSeed">Criar categorias padrão</button>
+        <p class="muted small">Use isso uma vez pra gerar categorias iniciais (saída/entrada).</p>
+        <div class="msg" id="msgSettings"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./script/app.js"></script>
+</body>
+</html>

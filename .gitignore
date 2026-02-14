@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Node (caso use depois)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# VS Code
+.vscode/
+
+# Environment (se um dia usar)
+.env
