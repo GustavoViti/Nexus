@@ -1,12 +1,23 @@
 import { watchAuth, logout } from "./auth.js";
+
 import {
-  createAccount, createCategory, createTransaction,
-  listAccounts, listCategories,
-  watchTransactionsMonth
+  createAccount,
+  createCategory,
+  createTransaction,
+  listAccounts,
+  listCategories,
+  watchTransactionsMonth,
+  watchTransactionsAll
 } from "./db.js";
+
 import { seedDefaultCategories } from "./seed.js";
 
+
 const $ = (id) => document.getElementById(id);
+
+let viewMode = "month"; // "month" | "history"
+let selectedMonth = new Date(); // controla qual mês está vendo
+
 
 let currentUser = null;
 let txType = "expense";
@@ -134,26 +145,52 @@ function computeDashboard(items){
   $("sumBalance").textContent = formatBRL(balance);
 }
 
-function watchMonth(uid){
-  // limpa watcher anterior
+function monthLabel(dt){
+  const m = dt.toLocaleString("pt-BR", { month: "long" });
+  const y = dt.getFullYear();
+  return `${m[0].toUpperCase() + m.slice(1)} ${y}`;
+}
+
+function watchView(uid){
   if(unsubTx) unsubTx();
 
-  const { startDate, endDate } = getMonthRange(new Date());
+  $("monthNav").style.display = (viewMode === "month") ? "flex" : "none";
 
+  if(viewMode === "history"){
+    $("monthLabel").textContent = "Histórico";
+    unsubTx = watchTransactionsAll(uid, {
+      onChange: (items) => {
+        computeDashboard(items);     // dashboard no histórico = geral (por enquanto)
+        renderTransactions(items);
+        $("listHint").textContent = `Histórico • ${items.length} item(ns)`;
+      },
+      onError: (err) => {
+        console.error(err);
+        $("listHint").textContent = "Erro ao carregar histórico (ver console).";
+      }
+    });
+    return;
+  }
+
+  // viewMode === "month"
+  $("monthLabel").textContent = monthLabel(selectedMonth);
+
+  const { startDate, endDate } = getMonthRange(selectedMonth);
   unsubTx = watchTransactionsMonth(uid, {
     startDate,
     endDate,
     onChange: (items) => {
       computeDashboard(items);
       renderTransactions(items);
-      $("listHint").textContent = `Mês atual: ${startDate.slice(5,7)}/${startDate.slice(0,4)} • ${items.length} item(ns)`;
+      $("listHint").textContent = `Mês • ${items.length} item(ns)`;
     },
     onError: (err) => {
       console.error(err);
-      $("listHint").textContent = "Erro ao carregar transações (ver console).";
+      $("listHint").textContent = "Erro ao carregar mês (ver console).";
     }
   });
 }
+
 
 function wireCloseButtons(){
   document.querySelectorAll("[data-close]").forEach(btn=>{
@@ -184,6 +221,17 @@ function wireSegmented(){
       catType = btn.dataset.catType;
     });
   });
+
+  // toggle Mês / Histórico
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    viewMode = btn.dataset.view;
+    watchView(currentUser.uid);
+  });
+});
+
 }
 
 function setDefaultDate(){
@@ -221,6 +269,17 @@ function wireButtons(){
       setMsg(msg, e.message || "Falha ao criar categorias.", "err");
     }
   });
+
+  $("btnPrevMonth").addEventListener("click", () => {
+  selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
+  watchView(currentUser.uid);
+});
+
+$("btnNextMonth").addEventListener("click", () => {
+  selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1);
+  watchView(currentUser.uid);
+});
+
 }
 
 function wireForms(){
@@ -324,10 +383,24 @@ watchAuth({
     wireForms();
 
     await refreshSelects(user.uid);
-    watchMonth(user.uid);
+
+    // estado inicial da visualização
+    viewMode = "month";
+    selectedMonth = new Date();
+
+    // ativa botão "Mês"
+    document.querySelectorAll('[data-view]').forEach(b => {
+      b.classList.remove("active");
+      if (b.dataset.view === "month") {
+        b.classList.add("active");
+      }
+    });
+
+    watchView(user.uid);
   },
+
   onOut: () => {
-    if(unsubTx) unsubTx();
+    if (unsubTx) unsubTx();
     window.location.href = "./index.html";
   },
 });

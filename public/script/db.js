@@ -65,3 +65,18 @@ export function watchTransactionsMonth(uid, { startDate, endDate, onChange, onEr
     (err) => onError?.(err)
   );
 }
+
+export function watchTransactionsAll(uid, { onChange, onError }) {
+  const ref = collection(db, "users", uid, "transactions");
+  const q = query(ref, orderBy("date", "desc"));
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      onChange?.(items);
+    },
+    (err) => onError?.(err)
+  );
+}
+

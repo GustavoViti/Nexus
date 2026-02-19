@@ -49,11 +49,26 @@
     </section>
 
     <!-- Lista placeholder -->
-    <section class="list">
-      <div class="list__header">
-        <h2>Transações</h2>
-        <span class="muted" id="listHint">Crie sua primeira transação 👇</span>
-      </div>
+    <div class="list__header">
+  <div class="list__title">
+    <h2>Transações</h2>
+    <span class="muted" id="listHint">Carregando…</span>
+  </div>
+
+  <div class="list__controls">
+    <div class="segmented mini" role="tablist" aria-label="Modo">
+      <button type="button" class="seg active" data-view="month">Mês</button>
+      <button type="button" class="seg" data-view="history">Histórico</button>
+    </div>
+
+    <div class="monthnav" id="monthNav">
+      <button class="iconbtn" id="btnPrevMonth" aria-label="Mês anterior">←</button>
+      <div class="monthnav__label" id="monthLabel">—</div>
+      <button class="iconbtn" id="btnNextMonth" aria-label="Próximo mês">→</button>
+    </div>
+  </div>
+</div>
+
 
       <div class="empty" id="emptyState">
         <div class="empty__title">Sem dados ainda</div>
