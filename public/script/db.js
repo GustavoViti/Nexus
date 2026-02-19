@@ -1,6 +1,6 @@
 import { db } from "./firebase.js";
 import {
-  collection, doc, addDoc, setDoc, getDocs, query, orderBy,
+  collection, addDoc, getDocs, query, orderBy, where, onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -41,4 +41,27 @@ export async function listCategories(uid) {
   const ref = collection(db, "users", uid, "categories");
   const snap = await getDocs(query(ref, orderBy("createdAt", "asc")));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Observa transações do mês (tempo real)
+ * date está como "YYYY-MM-DD", então dá pra filtrar por range de strings.
+ */
+export function watchTransactionsMonth(uid, { startDate, endDate, onChange, onError }) {
+  const ref = collection(db, "users", uid, "transactions");
+  const q = query(
+    ref,
+    where("date", ">=", startDate),
+    where("date", "<=", endDate),
+    orderBy("date", "desc")
+  );
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      onChange?.(items);
+    },
+    (err) => onError?.(err)
+  );
 }
