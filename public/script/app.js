@@ -15,6 +15,10 @@ import { seedDefaultCategories } from "./seed.js";
 
 const $ = (id) => document.getElementById(id);
 
+let chartCategory = null;
+let chartBalance = null;
+
+
 let viewMode = "month"; // "month" | "history"
 let selectedMonth = new Date(); // controla qual mês está vendo
 
@@ -145,6 +149,72 @@ function computeDashboard(items){
   $("sumBalance").textContent = formatBRL(balance);
 }
 
+function renderCharts(items){
+  const ctxCat = document.getElementById("chartCategory");
+  const ctxBal = document.getElementById("chartBalance");
+
+  if(!ctxCat || !ctxBal) return;
+
+  // destruir gráficos antigos
+  if(chartCategory) chartCategory.destroy();
+  if(chartBalance) chartBalance.destroy();
+
+  // Agrupar por categoria (somente despesas)
+  const byCategory = {};
+  let income = 0;
+  let expense = 0;
+
+  for(const tx of items){
+    const amt = Number(tx.amount) || 0;
+
+    if(tx.type === "income"){
+      income += amt;
+    } else {
+      expense += amt;
+      const cat = categoryMap.get(tx.categoryId)?.name || "Outros";
+      byCategory[cat] = (byCategory[cat] || 0) + amt;
+    }
+  }
+
+  // Gráfico pizza por categoria
+  chartCategory = new Chart(ctxCat, {
+    type: "doughnut",
+    data: {
+      labels: Object.keys(byCategory),
+      datasets: [{
+        data: Object.values(byCategory),
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { labels: { color: "#F3F4F6" } }
+      }
+    }
+  });
+
+  // Gráfico barras entrada vs saída
+  chartBalance = new Chart(ctxBal, {
+    type: "bar",
+    data: {
+      labels: ["Entradas", "Saídas"],
+      datasets: [{
+        data: [income, expense],
+        backgroundColor: ["#22C55E", "#EF4444"]
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { ticks: { color: "#F3F4F6" } },
+        x: { ticks: { color: "#F3F4F6" } }
+      }
+    }
+  });
+}
+
+
 function monthLabel(dt){
   const m = dt.toLocaleString("pt-BR", { month: "long" });
   const y = dt.getFullYear();
@@ -162,6 +232,7 @@ function watchView(uid){
       onChange: (items) => {
         computeDashboard(items);     // dashboard no histórico = geral (por enquanto)
         renderTransactions(items);
+        renderCharts(items);
         $("listHint").textContent = `Histórico • ${items.length} item(ns)`;
       },
       onError: (err) => {
@@ -180,10 +251,12 @@ function watchView(uid){
     startDate,
     endDate,
     onChange: (items) => {
-      computeDashboard(items);
-      renderTransactions(items);
-      $("listHint").textContent = `Mês • ${items.length} item(ns)`;
-    },
+  computeDashboard(items);
+  renderTransactions(items);
+  renderCharts(items); // ✅ FALTAVA ISSO AQUI
+  $("listHint").textContent = `Mês • ${items.length} item(ns)`;
+},
+
     onError: (err) => {
       console.error(err);
       $("listHint").textContent = "Erro ao carregar mês (ver console).";
@@ -383,6 +456,13 @@ watchAuth({
     wireForms();
 
     await refreshSelects(user.uid);
+
+// Se não tiver categorias, cria automaticamente
+if(categories.length === 0){
+  await seedDefaultCategories(user.uid);
+  await refreshSelects(user.uid);
+}
+
 
     // estado inicial da visualização
     viewMode = "month";

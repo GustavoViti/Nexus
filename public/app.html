@@ -41,6 +41,19 @@
       </div>
     </section>
 
+    <section class="charts">
+  <div class="chart-card">
+    <h3>Distribuição por categoria</h3>
+    <canvas id="chartCategory"></canvas>
+  </div>
+
+  <div class="chart-card">
+    <h3>Entradas vs Saídas</h3>
+    <canvas id="chartBalance"></canvas>
+  </div>
+</section>
+
+
     <!-- Ações rápidas -->
     <section class="actions">
       <button class="btn" id="btnNewTx">+ Lançamento</button>
@@ -48,35 +61,36 @@
       <button class="btn secondary" id="btnNewCategory">+ Categoria</button>
     </section>
 
-    <!-- Lista placeholder -->
-    <div class="list__header">
-  <div class="list__title">
-    <h2>Transações</h2>
-    <span class="muted" id="listHint">Carregando…</span>
-  </div>
-
-  <div class="list__controls">
-    <div class="segmented mini" role="tablist" aria-label="Modo">
-      <button type="button" class="seg active" data-view="month">Mês</button>
-      <button type="button" class="seg" data-view="history">Histórico</button>
+   <!-- Lista -->
+<section class="list">
+  <div class="list__header">
+    <div class="list__title">
+      <h2>Transações</h2>
+      <span class="muted" id="listHint">Carregando…</span>
     </div>
 
-    <div class="monthnav" id="monthNav">
-      <button class="iconbtn" id="btnPrevMonth" aria-label="Mês anterior">←</button>
-      <div class="monthnav__label" id="monthLabel">—</div>
-      <button class="iconbtn" id="btnNextMonth" aria-label="Próximo mês">→</button>
-    </div>
-  </div>
-</div>
-
-
-      <div class="empty" id="emptyState">
-        <div class="empty__title">Sem dados ainda</div>
-        <div class="empty__text">Crie uma conta e registre um lançamento pra começar.</div>
+    <div class="list__controls">
+      <div class="segmented mini" role="tablist" aria-label="Modo">
+        <button type="button" class="seg active" data-view="month">Mês</button>
+        <button type="button" class="seg" data-view="history">Histórico</button>
       </div>
 
-      <div class="txlist" id="txList"></div>
-    </section>
+      <div class="monthnav" id="monthNav">
+        <button class="iconbtn" id="btnPrevMonth" aria-label="Mês anterior">←</button>
+        <div class="monthnav__label" id="monthLabel">—</div>
+        <button class="iconbtn" id="btnNextMonth" aria-label="Próximo mês">→</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <div class="empty__title">Sem dados ainda</div>
+    <div class="empty__text">Crie uma conta e registre um lançamento pra começar.</div>
+  </div>
+
+  <div class="txlist" id="txList"></div>
+</section>
+
   </main>
 
   <!-- MODAL: Nova Transação -->
@@ -210,7 +224,7 @@
       </div>
     </div>
   </div>
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script type="module" src="./script/app.js"></script>
 </body>
 </html>
