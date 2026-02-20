@@ -45,6 +45,9 @@ body{
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   box-shadow: 0 14px 30px rgba(34,197,94,.18);
 }
+.logo img{
+  width:100%; height:100%; object-fit:cover; border-radius:14px;
+}
 .brand__name{ font-weight:900; letter-spacing:.2px; }
 .brand__sub{ color:var(--muted); font-size:12px; margin-top:2px; }
 
