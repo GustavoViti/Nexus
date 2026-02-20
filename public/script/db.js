@@ -1,7 +1,7 @@
 import { db } from "./firebase.js";
 import {
-  collection, addDoc, getDocs, query, orderBy, where, onSnapshot,
-  serverTimestamp
+  collection, doc, addDoc, getDocs, query, orderBy, where, onSnapshot,
+  serverTimestamp, setDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 export async function createAccount(uid, { name, type, initialBalance }) {
@@ -80,3 +80,29 @@ export function watchTransactionsAll(uid, { onChange, onError }) {
   );
 }
 
+export function watchAccounts(uid, { onChange, onError }) {
+  const ref = collection(db, "users", uid, "accounts");
+  const q = query(ref, orderBy("createdAt", "asc"));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      onChange?.(items);
+    },
+    (err) => onError?.(err)
+  );
+}
+
+export function watchSettings(uid, { onChange, onError }) {
+  const ref = doc(db, "users", uid, "settings", "main");
+  return onSnapshot(
+    ref,
+    (snap) => onChange?.(snap.exists() ? snap.data() : null),
+    (err) => onError?.(err)
+  );
+}
+
+export async function setMonthlyBudget(uid, monthlyBudget) {
+  const ref = doc(db, "users", uid, "settings", "main");
+  await setDoc(ref, { monthlyBudget: Number(monthlyBudget || 0) }, { merge: true });
+}

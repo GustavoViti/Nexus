@@ -42,6 +42,30 @@
       </div>
     </section>
 
+    <section class="accounts">
+  <div class="accounts__header">
+    <h2>Contas</h2>
+    <span class="muted" id="healthHint">Saúde financeira: —</span>
+  </div>
+
+  <div class="accounts__grid" id="accountsGrid"></div>
+
+  <div class="budget" id="budgetBox" style="display:none;">
+    <div class="budget__top">
+      <strong>Meta de gastos do mês</strong>
+      <span class="muted" id="budgetLabel">—</span>
+    </div>
+    <div class="budget__bar">
+      <div class="budget__fill" id="budgetFill" style="width:0%"></div>
+    </div>
+    <div class="budget__bottom">
+      <span class="muted" id="budgetSpent">Gasto: —</span>
+      <span class="muted" id="budgetRemaining">Restante: —</span>
+    </div>
+  </div>
+</section>
+
+
     <section class="charts">
   <div class="chart-card">
     <h3>Distribuição por categoria</h3>
@@ -56,11 +80,13 @@
 
 
     <!-- Ações rápidas -->
-    <section class="actions">
-      <button class="btn" id="btnNewTx">+ Lançamento</button>
-      <button class="btn secondary" id="btnNewAccount">+ Conta</button>
-      <button class="btn secondary" id="btnNewCategory">+ Categoria</button>
-    </section>
+<section class="actions">
+  <button class="btn" id="btnNewTx">+ Lançamento</button>
+  <button class="btn secondary" id="btnTransfer">↔ Transferência</button>
+  <button class="btn secondary" id="btnNewAccount">+ Conta</button>
+  <button class="btn secondary" id="btnNewCategory">+ Categoria</button>
+</section>
+
 
    <!-- Lista -->
 <section class="list">
@@ -210,6 +236,49 @@
     </div>
   </div>
 
+  <!-- MODAL: Transferência -->
+<div class="modal" id="modalTransfer" aria-hidden="true">
+  <div class="modal__panel">
+    <div class="modal__header">
+      <h3>Transferência</h3>
+      <button class="iconbtn" data-close="modalTransfer" aria-label="Fechar">✕</button>
+    </div>
+
+    <form class="form" id="formTransfer">
+      <div class="row">
+        <div class="field">
+          <label class="label">De (conta origem)</label>
+          <select class="input" id="trFrom" required></select>
+        </div>
+        <div class="field">
+          <label class="label">Para (conta destino)</label>
+          <select class="input" id="trTo" required></select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label class="label">Valor</label>
+          <input class="input" id="trAmount" inputmode="decimal" placeholder="Ex: 200,00" required />
+        </div>
+        <div class="field">
+          <label class="label">Data</label>
+          <input class="input" id="trDate" type="date" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Observação (opcional)</label>
+        <input class="input" id="trNotes" placeholder="Ex: pagar cartão / separar dinheiro" />
+      </div>
+
+      <button class="btn" id="btnSaveTransfer" type="submit">Transferir</button>
+      <div class="msg" id="msgTransfer"></div>
+    </form>
+  </div>
+</div>
+
+
   <!-- MODAL: Config -->
   <div class="modal" id="modalSettings" aria-hidden="true">
     <div class="modal__panel">
@@ -223,6 +292,13 @@
         <p class="muted small">Use isso uma vez pra gerar categorias iniciais (saída/entrada).</p>
         <div class="msg" id="msgSettings"></div>
       </div>
+
+      <div class="field" style="margin-top:12px;">
+  <label class="label">Meta de gastos do mês (R$)</label>
+  <input class="input" id="monthlyBudget" inputmode="decimal" placeholder="Ex: 1500,00" />
+</div>
+<button class="btn secondary" id="btnSaveBudget" type="button">Salvar meta</button>
+
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

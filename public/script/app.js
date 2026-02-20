@@ -7,8 +7,12 @@ import {
   listAccounts,
   listCategories,
   watchTransactionsMonth,
-  watchTransactionsAll
+  watchTransactionsAll,
+  watchAccounts,
+  watchSettings,
+  setMonthlyBudget
 } from "./db.js";
+
 
 import { seedDefaultCategories } from "./seed.js";
 
@@ -17,6 +21,13 @@ const $ = (id) => document.getElementById(id);
 
 let chartCategory = null;
 let chartBalance = null;
+
+let unsubBalances = null;
+let unsubAccounts = null;
+let unsubSettings = null;
+
+let allTxCache = [];
+let settings = { monthlyBudget: 0 };
 
 
 let viewMode = "month"; // "month" | "history"
@@ -79,12 +90,7 @@ async function loadLookups(uid){
 }
 
 async function refreshSelects(uid){
-  await loadLookups(uid);
-
-  const selAcc = $("txAccount");
-  selAcc.innerHTML = accounts.length
-    ? accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join("")
-    : `<option value="" disabled selected>Crie uma conta primeiro</option>`;
+  await refreshCategories(uid);
 
   const selCat = $("txCategory");
   const filtered = categories.filter(c => c.type === txType);
@@ -92,6 +98,7 @@ async function refreshSelects(uid){
     ? filtered.map(c => `<option value="${c.id}">${c.name}</option>`).join("")
     : `<option value="" disabled selected>Crie uma categoria (${txType === "expense" ? "saída" : "entrada"})</option>`;
 }
+
 
 function renderTransactions(items){
   const list = $("txList");
@@ -147,7 +154,91 @@ function computeDashboard(items){
   $("sumIncome").textContent = formatBRL(income);
   $("sumExpense").textContent = formatBRL(expense);
   $("sumBalance").textContent = formatBRL(balance);
+
+  // Saúde financeira
+  const rate = income > 0 ? (balance / income) : 0; // taxa de poupança
+  let cls = "warn";
+  let text = `Saúde financeira: ${(rate*100).toFixed(0)}%`;
+
+  if(rate >= 0.20) cls = "ok";
+  else if(rate < 0) cls = "bad";
+
+  $("healthHint").innerHTML = `<span class="badge ${cls}">● ${escapeHtml(text)}</span>`;
+
+  // Meta mensal (gastos)
+  const budget = Number(settings?.monthlyBudget || 0);
+  const box = $("budgetBox");
+  if(!box) return;
+
+  if(budget > 0){
+    box.style.display = "block";
+    $("budgetLabel").textContent = `Meta: ${formatBRL(budget)}`;
+
+    const pct = Math.min(100, Math.round((expense / budget) * 100));
+    $("budgetFill").style.width = `${isFinite(pct) ? pct : 0}%`;
+
+    $("budgetSpent").textContent = `Gasto: ${formatBRL(expense)}`;
+    $("budgetRemaining").textContent = `Restante: ${formatBRL(budget - expense)}`;
+
+    // se estourou, fica vermelho
+    if(expense > budget){
+      $("budgetFill").style.background = "linear-gradient(135deg, #EF4444, #B91C1C)";
+    }else{
+      $("budgetFill").style.background = "linear-gradient(135deg, var(--accent), var(--accent2))";
+    }
+  } else {
+    box.style.display = "none";
+  }
 }
+
+
+function renderAccounts(balances){
+  const grid = $("accountsGrid");
+  if(!grid) return;
+
+  if(!accounts.length){
+    grid.innerHTML = `<div class="muted">Crie uma conta para começar.</div>`;
+    return;
+  }
+
+  grid.innerHTML = accounts.map(a => {
+    const bal = balances.get(a.id) ?? (Number(a.initialBalance) || 0);
+    return `
+      <div class="acc">
+        <div class="acc__top">
+          <div>
+            <div class="acc__name">${escapeHtml(a.name)}</div>
+            <div class="acc__type">${escapeHtml(a.type || "")}</div>
+          </div>
+        </div>
+        <div class="acc__bal">${formatBRL(bal)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function computeAccountBalances(){
+  // saldo inicial
+  const balances = new Map();
+  for(const a of accounts){
+    balances.set(a.id, Number(a.initialBalance) || 0);
+  }
+
+  // aplica todas as transações (histórico completo)
+  for(const tx of allTxCache){
+    const id = tx.accountId;
+    if(!id) continue;
+
+    const cur = balances.get(id) ?? 0;
+    const amt = Number(tx.amount) || 0;
+
+    if(tx.type === "income") balances.set(id, cur + amt);
+    else if(tx.type === "expense") balances.set(id, cur - amt);
+  }
+
+  renderAccounts(balances);
+}
+
 
 function renderCharts(items){
   const ctxCat = document.getElementById("chartCategory");
@@ -353,6 +444,43 @@ $("btnNextMonth").addEventListener("click", () => {
   watchView(currentUser.uid);
 });
 
+// salvar meta mensal
+const btnSaveBudget = $("btnSaveBudget");
+if(btnSaveBudget){
+  btnSaveBudget.addEventListener("click", async () => {
+    const msg = $("msgSettings");
+    const val = parseMoneyBR($("monthlyBudget")?.value || "0");
+
+    if(!Number.isFinite(val) || val < 0){
+      if(msg) setMsg(msg, "Meta inválida.", "err");
+      return;
+    }
+
+    try{
+      await setMonthlyBudget(currentUser.uid, val);
+      if(msg) setMsg(msg, "Meta salva ✅", "ok");
+    }catch(e){
+      console.error(e);
+      if(msg) setMsg(msg, e.message || "Falha ao salvar meta.", "err");
+    }
+  });
+}
+
+// abrir modal de transferência
+const btnTransfer = $("btnTransfer");
+if(btnTransfer){
+  btnTransfer.addEventListener("click", () => {
+    openModal("modalTransfer");
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+    const trDate = $("trDate");
+    if(trDate) trDate.value = `${yyyy}-${mm}-${dd}`;
+  });
+}
+
+
 }
 
 function wireForms(){
@@ -445,6 +573,77 @@ function escapeHtml(str){
     .replaceAll("'","&#039;");
 }
 
+async function refreshCategories(uid){
+  categories = await listCategories(uid);
+  categoryMap = new Map(categories.map(c => [c.id, c]));
+
+  const formTransfer = $("formTransfer");
+if(formTransfer){
+  formTransfer.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = $("msgTransfer");
+    setMsg(msg, "Transferindo...", "ok");
+
+    const from = $("trFrom")?.value;
+    const to = $("trTo")?.value;
+    const amount = parseMoneyBR($("trAmount")?.value);
+    const date = $("trDate")?.value;
+
+    if(!from || !to || from === to){
+      setMsg(msg, "Escolha contas diferentes.", "err");
+      return;
+    }
+    if(!Number.isFinite(amount) || amount <= 0){
+      setMsg(msg, "Valor inválido.", "err");
+      return;
+    }
+
+    try{
+      const notes = ($("trNotes")?.value || "").trim();
+      const descOut = `Transferência para ${accountMap.get(to)?.name || "conta"}`;
+      const descIn  = `Transferência de ${accountMap.get(from)?.name || "conta"}`;
+
+      const catOut = categories.find(c => c.type === "expense" && c.name === "Transferência")?.id || "";
+      const catIn  = categories.find(c => c.type === "income"  && c.name === "Transferência")?.id || "";
+
+      await createTransaction(currentUser.uid, {
+        type: "expense",
+        amount,
+        date,
+        description: descOut,
+        accountId: from,
+        categoryId: catOut,
+        notes,
+      });
+
+      await createTransaction(currentUser.uid, {
+        type: "income",
+        amount,
+        date,
+        description: descIn,
+        accountId: to,
+        categoryId: catIn,
+        notes,
+      });
+
+      setMsg(msg, "Transferência realizada ✅", "ok");
+      formTransfer.reset();
+
+      // mantém a data preenchida
+      if($("trDate")) $("trDate").value = date;
+
+      setTimeout(()=> closeModal("modalTransfer"), 350);
+    }catch(err){
+      console.error(err);
+      setMsg(msg, err.message || "Falha ao transferir.", "err");
+    }
+  });
+}
+
+
+}
+
+
 watchAuth({
   onIn: async (user) => {
     currentUser = user;
@@ -455,32 +654,83 @@ watchAuth({
     wireButtons();
     wireForms();
 
+    // 1) Settings (meta mensal)
+    if(unsubSettings) unsubSettings();
+    unsubSettings = watchSettings(user.uid, {
+      onChange: (data) => {
+        settings = data || { monthlyBudget: 0 };
+        const el = $("monthlyBudget");
+        if(el){
+          el.value = settings.monthlyBudget
+            ? String(settings.monthlyBudget).replace(".", ",")
+            : "";
+        }
+      },
+      onError: console.error
+    });
+
+    // 2) Accounts realtime (para cards + selects)
+    if(unsubAccounts) unsubAccounts();
+    unsubAccounts = watchAccounts(user.uid, {
+      onChange: (items) => {
+        accounts = items;
+        accountMap = new Map(accounts.map(a => [a.id, a]));
+
+        const options = accounts.length
+          ? accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join("")
+          : `<option value="" disabled selected>Crie uma conta</option>`;
+
+        // selects do lançamento
+        const txAcc = $("txAccount");
+        if(txAcc) txAcc.innerHTML = options;
+
+        // selects da transferência (se existirem no HTML)
+        const trFrom = $("trFrom");
+        const trTo = $("trTo");
+        if(trFrom) trFrom.innerHTML = options;
+        if(trTo) trTo.innerHTML = options;
+
+        computeAccountBalances();
+      },
+      onError: console.error
+    });
+
+    // 3) Watcher global (saldos por conta sempre corretos)
+    if(unsubBalances) unsubBalances();
+    unsubBalances = watchTransactionsAll(user.uid, {
+      onChange: (items) => {
+        allTxCache = items;
+        computeAccountBalances();
+      },
+      onError: console.error
+    });
+
+    // 4) Categorias + seed automático
+    await refreshCategories(user.uid);
+    if(categories.length === 0){
+      await seedDefaultCategories(user.uid);
+      await refreshCategories(user.uid);
+    }
+
+    // 5) Atualizar select de categorias conforme txType
     await refreshSelects(user.uid);
 
-// Se não tiver categorias, cria automaticamente
-if(categories.length === 0){
-  await seedDefaultCategories(user.uid);
-  await refreshSelects(user.uid);
-}
-
-
-    // estado inicial da visualização
+    // 6) Estado inicial de visualização
     viewMode = "month";
     selectedMonth = new Date();
 
-    // ativa botão "Mês"
     document.querySelectorAll('[data-view]').forEach(b => {
-      b.classList.remove("active");
-      if (b.dataset.view === "month") {
-        b.classList.add("active");
-      }
+      b.classList.toggle("active", b.dataset.view === "month");
     });
 
     watchView(user.uid);
   },
 
   onOut: () => {
-    if (unsubTx) unsubTx();
+    if(unsubTx) unsubTx();
+    if(unsubBalances) unsubBalances();
+    if(unsubAccounts) unsubAccounts();
+    if(unsubSettings) unsubSettings();
     window.location.href = "./index.html";
   },
 });
