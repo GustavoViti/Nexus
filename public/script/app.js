@@ -2,7 +2,11 @@ import { watchAuth, logout } from "./auth.js";
 
 import {
   createAccount,
+  updateAccount,
+  deleteAccount,
   createCategory,
+  updateCategory,
+  deleteCategory,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -15,225 +19,229 @@ import {
   setMonthlyBudget
 } from "./db.js";
 
-
 import { seedDefaultCategories } from "./seed.js";
-
 
 const $ = (id) => document.getElementById(id);
 
 let chartCategory = null;
-let chartBalance = null;
+let chartBalance  = null;
 
 let unsubBalances = null;
 let unsubAccounts = null;
 let unsubSettings = null;
 
 let allTxCache = [];
+let currentTxList = [];
 let settings = { monthlyBudget: 0 };
 
-let editingTxId = null;
+let editingTxId       = null;
+let editingAccountId  = null;
 
-
-let viewMode = "month"; // "month" | "history"
-let selectedMonth = new Date(); // controla qual mês está vendo
-
+let viewMode      = "month";
+let selectedMonth = new Date();
 
 let currentUser = null;
-let txType = "expense";
+let txType  = "expense";
 let catType = "expense";
 let unsubTx = null;
 
-let accounts = [];
-let categories = [];
-let accountMap = new Map();
+let accounts    = [];
+let categories  = [];
+let accountMap  = new Map();
 let categoryMap = new Map();
 
-function openModal(id){ $(id).classList.add("show"); $(id).setAttribute("aria-hidden","false"); }
-function closeModal(id){ $(id).classList.remove("show"); $(id).setAttribute("aria-hidden","true"); }
-function setMsg(el, text, type=""){ el.className = "msg" + (type ? ` ${type}` : ""); el.textContent = text || ""; }
+// ─── Modal helpers ───────────────────────────────────
+function openModal(id)  { $(id).classList.add("show");    $(id).setAttribute("aria-hidden","false"); }
+function closeModal(id) { $(id).classList.remove("show"); $(id).setAttribute("aria-hidden","true");  }
+function setMsg(el, text, type="") { el.className = "msg" + (type ? ` ${type}` : ""); el.textContent = text || ""; }
 
-function parseMoneyBR(value){
-  const v = String(value || "").trim()
-    .replace(/\./g,"")
-    .replace(",",".");
-  const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
-}
-
+// ─── Formatting ──────────────────────────────────────
 function formatBRL(n){
   return (Number(n) || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
 }
 
 function formatDateBR(yyyyMmDd){
-  // "2026-02-18" -> "18/02/2026"
   if(!yyyyMmDd || typeof yyyyMmDd !== "string") return "";
   const [y,m,d] = yyyyMmDd.split("-");
   return (d && m && y) ? `${d}/${m}/${y}` : yyyyMmDd;
 }
 
+function parseMoneyBR(value){
+  const v = String(value || "").trim().replace(/\./g,"").replace(",",".");
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 function getMonthRange(date = new Date()){
   const y = date.getFullYear();
-  const m = date.getMonth(); // 0-based
+  const m = date.getMonth();
   const start = new Date(y, m, 1);
-  const end = new Date(y, m + 1, 0); // último dia do mês
-
+  const end   = new Date(y, m + 1, 0);
   const toStr = (dt) => {
     const yyyy = dt.getFullYear();
-    const mm = String(dt.getMonth()+1).padStart(2,"0");
-    const dd = String(dt.getDate()).padStart(2,"0");
+    const mm   = String(dt.getMonth()+1).padStart(2,"0");
+    const dd   = String(dt.getDate()).padStart(2,"0");
     return `${yyyy}-${mm}-${dd}`;
   };
-
   return { startDate: toStr(start), endDate: toStr(end) };
 }
 
+function monthLabel(dt){
+  const m = dt.toLocaleString("pt-BR", { month: "long" });
+  const y = dt.getFullYear();
+  return `${m[0].toUpperCase() + m.slice(1)} ${y}`;
+}
+
+function monthShort(dt){
+  return dt.toLocaleString("pt-BR", { month: "short" }).replace(".","") + " " + String(dt.getFullYear()).slice(2);
+}
+
+function escapeHtml(str){
+  return String(str ?? "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+
+// ─── Data loading ─────────────────────────────────────
 async function loadLookups(uid){
   [accounts, categories] = await Promise.all([listAccounts(uid), listCategories(uid)]);
-  accountMap = new Map(accounts.map(a => [a.id, a]));
+  accountMap  = new Map(accounts.map(a => [a.id, a]));
   categoryMap = new Map(categories.map(c => [c.id, c]));
+}
+
+async function refreshCategories(uid){
+  categories  = await listCategories(uid);
+  categoryMap = new Map(categories.map(c => [c.id, c]));
+
+  const formTransfer = $("formTransfer");
+  if(formTransfer && !formTransfer.dataset.wired){
+    formTransfer.dataset.wired = "1";
+    formTransfer.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg    = $("msgTransfer");
+      setMsg(msg, "Transferindo...", "ok");
+
+      const from   = $("trFrom")?.value;
+      const to     = $("trTo")?.value;
+      const amount = parseMoneyBR($("trAmount")?.value);
+      const date   = $("trDate")?.value;
+
+      if(!from || !to || from === to){ setMsg(msg, "Escolha contas diferentes.", "err"); return; }
+      if(!Number.isFinite(amount) || amount <= 0){ setMsg(msg, "Valor inválido.", "err"); return; }
+
+      try{
+        const notes  = ($("trNotes")?.value || "").trim();
+        const descOut = `Transferência para ${accountMap.get(to)?.name  || "conta"}`;
+        const descIn  = `Transferência de ${accountMap.get(from)?.name || "conta"}`;
+        const catOut  = categories.find(c => c.type === "expense" && c.name === "Transferência")?.id || "";
+        const catIn   = categories.find(c => c.type === "income"  && c.name === "Transferência")?.id || "";
+
+        await createTransaction(currentUser.uid, { type:"expense", amount, date, description:descOut, accountId:from, categoryId:catOut, notes });
+        await createTransaction(currentUser.uid, { type:"income",  amount, date, description:descIn,  accountId:to,   categoryId:catIn,  notes });
+
+        setMsg(msg, "Transferência realizada ✅", "ok");
+        formTransfer.reset();
+        if($("trDate")) $("trDate").value = date;
+        setTimeout(() => closeModal("modalTransfer"), 350);
+      }catch(err){
+        console.error(err);
+        setMsg(msg, err.message || "Falha ao transferir.", "err");
+      }
+    });
+  }
 }
 
 async function refreshSelects(uid){
   await refreshCategories(uid);
-
-  const selCat = $("txCategory");
+  const selCat   = $("txCategory");
   const filtered = categories.filter(c => c.type === txType);
   selCat.innerHTML = filtered.length
     ? filtered.map(c => `<option value="${c.id}">${c.name}</option>`).join("")
     : `<option value="" disabled selected>Crie uma categoria (${txType === "expense" ? "saída" : "entrada"})</option>`;
 }
 
-
-function renderTransactions(items){
-  const list = $("txList");
-  const empty = $("emptyState");
-
-  if(!items.length){
-    list.innerHTML = "";
-    empty.style.display = "block";
-    return;
-  }
-
-  empty.style.display = "none";
-
-  list.innerHTML = items.map(tx => {
-    const cat = categoryMap.get(tx.categoryId);
-    const acc = accountMap.get(tx.accountId);
-
-    const signClass = tx.type === "income" ? "pos" : "neg";
-    const prefix = tx.type === "income" ? "+" : "-";
-
-    const metaParts = [
-      formatDateBR(tx.date),
-      cat?.name ? `• ${cat.name}` : "",
-      acc?.name ? `• ${acc.name}` : ""
-    ].filter(Boolean).join(" ");
-
-    return `
-      <div class="tx" data-id="${tx.id}">
-        <div class="tx__left">
-          <div class="tx__title">${escapeHtml(tx.description || "Sem descrição")}</div>
-          <div class="tx__meta">${escapeHtml(metaParts)}</div>
-        </div>
-        <div class="tx__value ${signClass}">
-          ${prefix} ${formatBRL(tx.amount)}
-        </div>
-      </div>
-    `;
-  }).join("");
-
-    // depois do innerHTML:
-  list.querySelectorAll(".tx").forEach(el => {
-    el.addEventListener("click", async () => {
-      const id = el.dataset.id;
-      const tx = items.find(t => t.id === id);
-      if(tx) await openEditModal(tx);
-    });
+// ─── Search / filter ──────────────────────────────────
+function filterTx(items){
+  const q = ($("txSearch")?.value || "").trim().toLowerCase();
+  if(!q) return items;
+  return items.filter(tx => {
+    const desc  = (tx.description || "").toLowerCase();
+    const notes = (tx.notes       || "").toLowerCase();
+    const cat   = (categoryMap.get(tx.categoryId)?.name || "").toLowerCase();
+    const acc   = (accountMap.get(tx.accountId)?.name   || "").toLowerCase();
+    return desc.includes(q) || notes.includes(q) || cat.includes(q) || acc.includes(q);
   });
 }
 
-
-async function openEditModal(tx){
-  editingTxId = tx.id;
-  txType = tx.type;
-
-  // ativa o tipo correto no segmented
-  document.querySelectorAll("#modalTx .seg").forEach(b => {
-    b.classList.toggle("active", b.dataset.type === txType);
-  });
-
-  // recarrega categorias do tipo correto antes de setar o value
-  if(currentUser) await refreshSelects(currentUser.uid);
-
-  openModal("modalTx");
-
-  $("txAmount").value = String(tx.amount).replace(".", ",");
-  $("txDate").value = tx.date;
-  $("txDesc").value = tx.description || "";
-  $("txAccount").value = tx.accountId;
-  $("txCategory").value = tx.categoryId;
-  $("txNotes").value = tx.notes || "";
-
-  $("btnSaveTx").textContent = "Salvar alterações";
-
-  // mostrar botão excluir (se existir no HTML)
-  const del = $("btnDeleteTx");
-  if(del) del.style.display = "block";
-}
-
+// ─── Dashboard ───────────────────────────────────────
 function computeDashboard(items){
-  let income = 0;
-  let expense = 0;
-
+  let income = 0, expense = 0;
   for(const tx of items){
     const amt = Number(tx.amount) || 0;
-    if(tx.type === "income") income += amt;
-    else expense += amt;
+    if(tx.type === "income") income += amt; else expense += amt;
   }
 
   const balance = income - expense;
-
-  $("sumIncome").textContent = formatBRL(income);
+  $("sumIncome").textContent  = formatBRL(income);
   $("sumExpense").textContent = formatBRL(expense);
-  $("sumBalance").textContent = formatBRL(balance);
 
-  // Saúde financeira
-  const rate = income > 0 ? (balance / income) : 0; // taxa de poupança
-  let cls = "warn";
-  let text = `Saúde financeira: ${(rate*100).toFixed(0)}%`;
+  // Monthly net in hero footer
+  const heroMonthly = $("heroMonthly");
+  if(heroMonthly){
+    const sign  = balance >= 0 ? "+" : "";
+    const cls   = balance >= 0 ? "pos" : "neg";
+    const label = viewMode === "history" ? "Histórico" : "Mês";
+    heroMonthly.innerHTML = `${label}: <span class="${cls}">${sign}${formatBRL(balance)}</span>`;
+  }
 
-  if(rate >= 0.20) cls = "ok";
-  else if(rate < 0) cls = "bad";
-
+  // Health badge
+  const rate = income > 0 ? (balance / income) : 0;
+  let cls  = rate >= 0.20 ? "ok" : rate < 0 ? "bad" : "warn";
+  let text = `Saúde: ${(rate * 100).toFixed(0)}%`;
   $("healthHint").innerHTML = `<span class="badge ${cls}">● ${escapeHtml(text)}</span>`;
 
-  // Meta mensal (gastos)
+  // Budget
   const budget = Number(settings?.monthlyBudget || 0);
-  const box = $("budgetBox");
+  const box    = $("budgetBox");
   if(!box) return;
 
   if(budget > 0){
     box.style.display = "block";
-    $("budgetLabel").textContent = `Meta: ${formatBRL(budget)}`;
-
+    $("budgetLabel").textContent   = `Meta: ${formatBRL(budget)}`;
     const pct = Math.min(100, Math.round((expense / budget) * 100));
-    $("budgetFill").style.width = `${isFinite(pct) ? pct : 0}%`;
-
-    $("budgetSpent").textContent = `Gasto: ${formatBRL(expense)}`;
+    $("budgetFill").style.width    = `${isFinite(pct) ? pct : 0}%`;
+    $("budgetSpent").textContent   = `Gasto: ${formatBRL(expense)}`;
     $("budgetRemaining").textContent = `Restante: ${formatBRL(budget - expense)}`;
-
-    // se estourou, fica vermelho
-    if(expense > budget){
-      $("budgetFill").style.background = "linear-gradient(135deg, #EF4444, #B91C1C)";
-    }else{
-      $("budgetFill").style.background = "linear-gradient(135deg, var(--accent), var(--accent2))";
-    }
+    $("budgetFill").style.background = expense > budget
+      ? "linear-gradient(90deg, #EF4444, #B91C1C)"
+      : "linear-gradient(90deg, var(--accent), var(--accent2))";
   } else {
     box.style.display = "none";
   }
 }
 
+// ─── Account balances + patrimônio total ──────────────
+function computeAccountBalances(){
+  const balances = new Map();
+  for(const a of accounts) balances.set(a.id, Number(a.initialBalance) || 0);
 
+  for(const tx of allTxCache){
+    if(!tx.accountId) continue;
+    const cur = balances.get(tx.accountId) ?? 0;
+    const amt = Number(tx.amount) || 0;
+    if(tx.type === "income")  balances.set(tx.accountId, cur + amt);
+    else if(tx.type === "expense") balances.set(tx.accountId, cur - amt);
+  }
+
+  // Patrimônio total no hero
+  const total    = Array.from(balances.values()).reduce((s, v) => s + v, 0);
+  const heroEl   = $("heroPatrimonial");
+  if(heroEl) heroEl.textContent = formatBRL(total);
+
+  renderAccounts(balances);
+}
+
+// ─── Render accounts ─────────────────────────────────
 function renderAccounts(balances){
   const grid = $("accountsGrid");
   if(!grid) return;
@@ -245,68 +253,101 @@ function renderAccounts(balances){
 
   grid.innerHTML = accounts.map(a => {
     const bal = balances.get(a.id) ?? (Number(a.initialBalance) || 0);
+    const isPos = bal >= 0;
     return `
-      <div class="acc">
+      <div class="acc" data-acc-id="${a.id}" style="cursor:pointer;" title="Clique para editar">
         <div class="acc__top">
           <div>
             <div class="acc__name">${escapeHtml(a.name)}</div>
             <div class="acc__type">${escapeHtml(a.type || "")}</div>
           </div>
         </div>
-        <div class="acc__bal">${formatBRL(bal)}</div>
+        <div class="acc__bal ${isPos ? "pos" : "neg"}">${formatBRL(bal)}</div>
       </div>
     `;
   }).join("");
+
+  grid.querySelectorAll(".acc").forEach(el => {
+    el.addEventListener("click", () => {
+      const acc = accounts.find(a => a.id === el.dataset.accId);
+      if(acc) openEditAccountModal(acc);
+    });
+  });
 }
 
-function computeAccountBalances(){
-  // saldo inicial
-  const balances = new Map();
-  for(const a of accounts){
-    balances.set(a.id, Number(a.initialBalance) || 0);
-  }
-
-  // aplica todas as transações (histórico completo)
-  for(const tx of allTxCache){
-    const id = tx.accountId;
-    if(!id) continue;
-
-    const cur = balances.get(id) ?? 0;
-    const amt = Number(tx.amount) || 0;
-
-    if(tx.type === "income") balances.set(id, cur + amt);
-    else if(tx.type === "expense") balances.set(id, cur - amt);
-  }
-
-  renderAccounts(balances);
+// ─── Edit account modal ───────────────────────────────
+function openEditAccountModal(acc){
+  editingAccountId = acc.id;
+  $("editAccName").value = acc.name || "";
+  $("editAccType").value = acc.type || "bank";
+  setMsg($("msgEditAccount"), "");
+  openModal("modalEditAccount");
 }
 
+// ─── Render transactions ──────────────────────────────
+function renderTransactions(items){
+  const list  = $("txList");
+  const empty = $("emptyState");
 
+  if(!items.length){
+    list.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  list.innerHTML = items.map(tx => {
+    const cat       = categoryMap.get(tx.categoryId);
+    const acc       = accountMap.get(tx.accountId);
+    const signClass = tx.type === "income" ? "pos" : "neg";
+    const prefix    = tx.type === "income" ? "+" : "-";
+
+    const metaParts = [
+      formatDateBR(tx.date),
+      cat?.name ? `• ${cat.name}` : "",
+      acc?.name ? `• ${acc.name}` : "",
+    ].filter(Boolean).join(" ");
+
+    const notesHtml = tx.notes
+      ? `<div class="tx__notes">${escapeHtml(tx.notes)}</div>`
+      : "";
+
+    return `
+      <div class="tx" data-id="${tx.id}">
+        <div class="tx__left">
+          <div class="tx__title">${escapeHtml(tx.description || "Sem descrição")}</div>
+          <div class="tx__meta">${escapeHtml(metaParts)}</div>
+          ${notesHtml}
+        </div>
+        <div class="tx__value ${signClass}">${prefix} ${formatBRL(tx.amount)}</div>
+      </div>
+    `;
+  }).join("");
+
+  list.querySelectorAll(".tx").forEach(el => {
+    el.addEventListener("click", async () => {
+      const tx = items.find(t => t.id === el.dataset.id);
+      if(tx) await openEditModal(tx);
+    });
+  });
+}
+
+// ─── Render charts ────────────────────────────────────
 function renderCharts(items){
   const ctxCat = document.getElementById("chartCategory");
   const ctxBal = document.getElementById("chartBalance");
-
   if(!ctxCat || !ctxBal) return;
 
-  // destruir gráficos antigos
   if(chartCategory) chartCategory.destroy();
-  if(chartBalance) chartBalance.destroy();
+  if(chartBalance)  chartBalance.destroy();
 
-  // Agrupar por categoria (somente despesas)
+  // ── Doughnut: category distribution ──
   const byCategory = {};
-  let income = 0;
-  let expense = 0;
-
   for(const tx of items){
-    const amt = Number(tx.amount) || 0;
-
-    if(tx.type === "income"){
-      income += amt;
-    } else {
-      expense += amt;
-      const cat = categoryMap.get(tx.categoryId)?.name || "Outros";
-      byCategory[cat] = (byCategory[cat] || 0) + amt;
-    }
+    if(tx.type !== "expense") continue;
+    const cat = categoryMap.get(tx.categoryId)?.name || "Outros";
+    byCategory[cat] = (byCategory[cat] || 0) + (Number(tx.amount) || 0);
   }
 
   const PALETTE = [
@@ -314,11 +355,9 @@ function renderCharts(items){
     "#10B981","#06B6D4","#F97316","#84CC16",
     "#EF4444","#3B82F6","#E879F9","#14B8A6",
   ];
-
-  const labels = Object.keys(byCategory);
+  const labels   = Object.keys(byCategory);
   const bgColors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
 
-  // Gráfico pizza por categoria
   chartCategory = new Chart(ctxCat, {
     type: "doughnut",
     data: {
@@ -338,37 +377,132 @@ function renderCharts(items){
     }
   });
 
-  // Gráfico barras entrada vs saída
+  // ── Line: monthly evolution (last 6 months from allTxCache) ──
+  const now      = new Date();
+  const months6  = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return d;
+  });
+
+  const monthData = months6.map(d => {
+    const { startDate, endDate } = getMonthRange(d);
+    let inc = 0, exp = 0;
+    for(const tx of allTxCache){
+      if(tx.date < startDate || tx.date > endDate) continue;
+      const amt = Number(tx.amount) || 0;
+      if(tx.type === "income")  inc += amt;
+      else                      exp += amt;
+    }
+    return { label: monthShort(d), net: inc - exp };
+  });
+
   chartBalance = new Chart(ctxBal, {
-    type: "bar",
+    type: "line",
     data: {
-      labels: ["Entradas", "Saídas"],
+      labels: monthData.map(m => m.label),
       datasets: [{
-        data: [income, expense],
-        backgroundColor: ["rgba(99,102,241,.8)", "rgba(239,68,68,.8)"],
-        borderRadius: 8,
-        borderSkipped: false,
+        label: "Saldo mensal",
+        data: monthData.map(m => m.net),
+        borderColor: "#6366F1",
+        backgroundColor: "rgba(99,102,241,.12)",
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: "#6366F1",
+        pointBorderColor: "rgba(8,11,18,.9)",
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
       }]
     },
     options: {
-      plugins: {
-        legend: { display: false }
-      },
+      plugins: { legend: { display: false } },
       scales: {
-        y: { ticks: { color: "#8B95B0" }, grid: { color: "rgba(30,38,64,.5)" } },
-        x: { ticks: { color: "#8B95B0" }, grid: { display: false } }
+        y: {
+          ticks: { color: "#8B95B0", callback: v => formatBRL(v) },
+          grid:  { color: "rgba(30,38,64,.5)" },
+        },
+        x: {
+          ticks: { color: "#8B95B0" },
+          grid:  { display: false },
+        }
       }
     }
   });
 }
 
+// ─── Render category list ─────────────────────────────
+async function renderCatList(){
+  const el = $("catList");
+  if(!el) return;
 
-function monthLabel(dt){
-  const m = dt.toLocaleString("pt-BR", { month: "long" });
-  const y = dt.getFullYear();
-  return `${m[0].toUpperCase() + m.slice(1)} ${y}`;
+  if(!categories.length){
+    el.innerHTML = `<div class="muted" style="padding:16px">Nenhuma categoria.</div>`;
+    return;
+  }
+
+  const expCats = categories.filter(c => c.type === "expense");
+  const incCats = categories.filter(c => c.type === "income");
+
+  const trashIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  const renderGroup = (title, cats) => {
+    if(!cats.length) return "";
+    return `
+      <div class="catgroup__title">${title}</div>
+      ${cats.map(c => `
+        <div class="catitem">
+          <span class="catitem__name">${escapeHtml(c.name)}</span>
+          <button class="catitem__del" data-del-cat="${c.id}" aria-label="Excluir ${escapeHtml(c.name)}">${trashIcon}</button>
+        </div>
+      `).join("")}
+    `;
+  };
+
+  el.innerHTML = renderGroup("Saídas", expCats) + renderGroup("Entradas", incCats);
+
+  el.querySelectorAll("[data-del-cat]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id   = btn.dataset.delCat;
+      const name = btn.closest(".catitem")?.querySelector(".catitem__name")?.textContent || "esta categoria";
+      if(!confirm(`Excluir "${name}"?`)) return;
+      try{
+        await deleteCategory(currentUser.uid, id);
+        await refreshCategories(currentUser.uid);
+        await renderCatList();
+      }catch(e){
+        console.error(e);
+        alert(e.message || "Falha ao excluir.");
+      }
+    });
+  });
 }
 
+// ─── Edit transaction modal ───────────────────────────
+async function openEditModal(tx){
+  editingTxId = tx.id;
+  txType = tx.type;
+
+  document.querySelectorAll("#modalTx .seg").forEach(b => {
+    b.classList.toggle("active", b.dataset.type === txType);
+  });
+
+  if(currentUser) await refreshSelects(currentUser.uid);
+
+  openModal("modalTx");
+
+  $("txAmount").value   = String(tx.amount).replace(".", ",");
+  $("txDate").value     = tx.date;
+  $("txDesc").value     = tx.description || "";
+  $("txAccount").value  = tx.accountId;
+  $("txCategory").value = tx.categoryId;
+  $("txNotes").value    = tx.notes || "";
+
+  $("btnSaveTx").textContent = "Salvar alterações";
+  const del = $("btnDeleteTx");
+  if(del) del.style.display = "block";
+}
+
+// ─── View watcher ─────────────────────────────────────
 function watchView(uid){
   if(unsubTx) unsubTx();
 
@@ -378,305 +512,333 @@ function watchView(uid){
     $("monthLabel").textContent = "Histórico";
     unsubTx = watchTransactionsAll(uid, {
       onChange: (items) => {
-        computeDashboard(items);     // dashboard no histórico = geral (por enquanto)
-        renderTransactions(items);
+        currentTxList = items;
+        computeDashboard(items);
+        renderTransactions(filterTx(items));
         renderCharts(items);
         $("listHint").textContent = `Histórico • ${items.length} item(ns)`;
       },
       onError: (err) => {
         console.error(err);
-        $("listHint").textContent = "Erro ao carregar histórico (ver console).";
+        $("listHint").textContent = "Erro ao carregar histórico.";
       }
     });
     return;
   }
 
-  // viewMode === "month"
   $("monthLabel").textContent = monthLabel(selectedMonth);
-
   const { startDate, endDate } = getMonthRange(selectedMonth);
   unsubTx = watchTransactionsMonth(uid, {
-    startDate,
-    endDate,
+    startDate, endDate,
     onChange: (items) => {
-  computeDashboard(items);
-  renderTransactions(items);
-  renderCharts(items); // ✅ FALTAVA ISSO AQUI
-  $("listHint").textContent = `Mês • ${items.length} item(ns)`;
-},
-
+      currentTxList = items;
+      computeDashboard(items);
+      renderTransactions(filterTx(items));
+      renderCharts(items);
+      $("listHint").textContent = `Mês • ${items.length} item(ns)`;
+    },
     onError: (err) => {
       console.error(err);
-      $("listHint").textContent = "Erro ao carregar mês (ver console).";
+      $("listHint").textContent = "Erro ao carregar mês.";
     }
   });
 }
 
+// ─── Default date ─────────────────────────────────────
+function setDefaultDate(){
+  const d    = new Date();
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth()+1).padStart(2,"0");
+  const dd   = String(d.getDate()).padStart(2,"0");
+  $("txDate").value = `${yyyy}-${mm}-${dd}`;
+}
 
+// ─── Wire: close buttons ──────────────────────────────
 function wireCloseButtons(){
-  document.querySelectorAll("[data-close]").forEach(btn=>{
-    btn.addEventListener("click", ()=> closeModal(btn.dataset.close));
+  document.querySelectorAll("[data-close]").forEach(btn => {
+    btn.addEventListener("click", () => closeModal(btn.dataset.close));
   });
-
-  document.querySelectorAll(".modal").forEach(m=>{
-    m.addEventListener("click", (e)=>{
-      if(e.target === m) closeModal(m.id);
-    });
+  document.querySelectorAll(".modal").forEach(m => {
+    m.addEventListener("click", (e) => { if(e.target === m) closeModal(m.id); });
   });
 }
 
+// ─── Wire: segmented controls ─────────────────────────
 function wireSegmented(){
-  document.querySelectorAll("#modalTx .seg").forEach(btn=>{
-    btn.addEventListener("click", async ()=>{
-      document.querySelectorAll("#modalTx .seg").forEach(b=> b.classList.remove("active"));
+  document.querySelectorAll("#modalTx .seg").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      document.querySelectorAll("#modalTx .seg").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       txType = btn.dataset.type;
       if(currentUser) await refreshSelects(currentUser.uid);
     });
   });
 
-  document.querySelectorAll("#modalCategory [data-cat-type]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      document.querySelectorAll("#modalCategory [data-cat-type]").forEach(b=> b.classList.remove("active"));
+  document.querySelectorAll("#modalCategory [data-cat-type]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#modalCategory [data-cat-type]").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       catType = btn.dataset.catType;
     });
   });
 
-  // toggle Mês / Histórico
-document.querySelectorAll('[data-view]').forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    viewMode = btn.dataset.view;
-    watchView(currentUser.uid);
+  document.querySelectorAll("[data-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      viewMode = btn.dataset.view;
+      watchView(currentUser.uid);
+    });
   });
-});
-
 }
 
-function setDefaultDate(){
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-  $("txDate").value = `${yyyy}-${mm}-${dd}`;
-}
-
+// ─── Wire: action buttons ─────────────────────────────
 function wireButtons(){
-  $("btnNewTx").addEventListener("click", async ()=>{
+  $("btnNewTx").addEventListener("click", async () => {
+    // reset edit state
+    editingTxId = null;
+    $("btnSaveTx").textContent = "Salvar";
+    const del = $("btnDeleteTx");
+    if(del) del.style.display = "none";
     openModal("modalTx");
     setDefaultDate();
     if(currentUser) await refreshSelects(currentUser.uid);
   });
 
-  $("btnNewAccount").addEventListener("click", ()=> openModal("modalAccount"));
-  $("btnNewCategory").addEventListener("click", ()=> openModal("modalCategory"));
-  $("btnOpenSettings").addEventListener("click", ()=> openModal("modalSettings"));
+  $("btnNewAccount").addEventListener("click",  () => openModal("modalAccount"));
+  $("btnNewCategory").addEventListener("click", () => openModal("modalCategory"));
+  $("btnOpenSettings").addEventListener("click",() => openModal("modalSettings"));
 
-  $("btnLogout").addEventListener("click", async ()=>{
+  $("btnLogout").addEventListener("click", async () => {
     await logout();
     window.location.href = "./index.html";
   });
 
-  $("btnSeed").addEventListener("click", async ()=>{
+  $("btnSeed").addEventListener("click", async () => {
     const msg = $("msgSettings");
-    setMsg(msg, "Criando categorias padrão...", "ok");
+    setMsg(msg, "Criando...", "ok");
     try{
       await seedDefaultCategories(currentUser.uid);
       await refreshSelects(currentUser.uid);
       setMsg(msg, "Categorias criadas ✅", "ok");
     }catch(e){
-      setMsg(msg, e.message || "Falha ao criar categorias.", "err");
+      setMsg(msg, e.message || "Falha.", "err");
     }
   });
 
   $("btnPrevMonth").addEventListener("click", () => {
-  selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
-  watchView(currentUser.uid);
-});
-
-$("btnNextMonth").addEventListener("click", () => {
-  selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1);
-  watchView(currentUser.uid);
-});
-
-// salvar meta mensal
-const btnSaveBudget = $("btnSaveBudget");
-if(btnSaveBudget){
-  btnSaveBudget.addEventListener("click", async () => {
-    const msg = $("msgSettings");
-    const val = parseMoneyBR($("monthlyBudget")?.value || "0");
-
-    if(!Number.isFinite(val) || val < 0){
-      if(msg) setMsg(msg, "Meta inválida.", "err");
-      return;
-    }
-
-    try{
-      await setMonthlyBudget(currentUser.uid, val);
-      if(msg) setMsg(msg, "Meta salva ✅", "ok");
-    }catch(e){
-      console.error(e);
-      if(msg) setMsg(msg, e.message || "Falha ao salvar meta.", "err");
-    }
+    selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
+    watchView(currentUser.uid);
   });
-}
-
-// abrir modal de transferência
-const btnTransfer = $("btnTransfer");
-if(btnTransfer){
-  btnTransfer.addEventListener("click", () => {
-    openModal("modalTransfer");
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,"0");
-    const dd = String(d.getDate()).padStart(2,"0");
-    const trDate = $("trDate");
-    if(trDate) trDate.value = `${yyyy}-${mm}-${dd}`;
+  $("btnNextMonth").addEventListener("click", () => {
+    selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1);
+    watchView(currentUser.uid);
   });
-}
 
-const btnDeleteTx = $("btnDeleteTx");
-if(btnDeleteTx){
-  btnDeleteTx.addEventListener("click", async () => {
-    if(!editingTxId) return;
-    if(!confirm("Deseja realmente excluir esta transação?")) return;
+  const btnSaveBudget = $("btnSaveBudget");
+  if(btnSaveBudget){
+    btnSaveBudget.addEventListener("click", async () => {
+      const msg = $("msgSettings");
+      const val = parseMoneyBR($("monthlyBudget")?.value || "0");
+      if(!Number.isFinite(val) || val < 0){ if(msg) setMsg(msg, "Meta inválida.", "err"); return; }
+      try{
+        await setMonthlyBudget(currentUser.uid, val);
+        if(msg) setMsg(msg, "Meta salva ✅", "ok");
+      }catch(e){
+        if(msg) setMsg(msg, e.message || "Falha.", "err");
+      }
+    });
+  }
 
-    try{
-      await deleteTransaction(currentUser.uid, editingTxId);
+  const btnTransfer = $("btnTransfer");
+  if(btnTransfer){
+    btnTransfer.addEventListener("click", () => {
+      openModal("modalTransfer");
+      const d  = new Date();
+      const mm = String(d.getMonth()+1).padStart(2,"0");
+      const dd = String(d.getDate()).padStart(2,"0");
+      const trDate = $("trDate");
+      if(trDate) trDate.value = `${d.getFullYear()}-${mm}-${dd}`;
+    });
+  }
+
+  const btnDeleteTx = $("btnDeleteTx");
+  if(btnDeleteTx){
+    btnDeleteTx.addEventListener("click", async () => {
+      if(!editingTxId) return;
+      if(!confirm("Excluir esta transação?")) return;
+      try{
+        await deleteTransaction(currentUser.uid, editingTxId);
+        editingTxId = null;
+        $("btnSaveTx").textContent = "Salvar";
+        btnDeleteTx.style.display = "none";
+        closeModal("modalTx");
+      }catch(e){
+        alert(e.message || "Falha ao excluir.");
+      }
+    });
+  }
+
+  // ── Edit account ──
+  const formEditAccount = $("formEditAccount");
+  if(formEditAccount){
+    formEditAccount.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("msgEditAccount");
+      setMsg(msg, "Salvando...", "ok");
+      try{
+        await updateAccount(currentUser.uid, editingAccountId, {
+          name: $("editAccName").value.trim(),
+          type: $("editAccType").value,
+        });
+        setMsg(msg, "Conta atualizada ✅", "ok");
+        setTimeout(() => closeModal("modalEditAccount"), 350);
+      }catch(err){
+        setMsg(msg, err.message || "Falha.", "err");
+      }
+    });
+  }
+
+  const btnDeleteAccount = $("btnDeleteAccount");
+  if(btnDeleteAccount){
+    btnDeleteAccount.addEventListener("click", async () => {
+      if(!editingAccountId) return;
+      const acc  = accounts.find(a => a.id === editingAccountId);
+      const name = acc?.name || "esta conta";
+      if(!confirm(`Excluir "${name}"? As transações vinculadas não serão removidas.`)) return;
+      try{
+        await deleteAccount(currentUser.uid, editingAccountId);
+        editingAccountId = null;
+        closeModal("modalEditAccount");
+      }catch(e){
+        alert(e.message || "Falha ao excluir conta.");
+      }
+    });
+  }
+
+  // ── Manage categories ──
+  const btnManageCategories = $("btnManageCategories");
+  if(btnManageCategories){
+    btnManageCategories.addEventListener("click", async () => {
+      closeModal("modalSettings");
+      await refreshCategories(currentUser.uid);
+      await renderCatList();
+      openModal("modalManageCategories");
+    });
+  }
+
+  // ── Search ──
+  const txSearch = $("txSearch");
+  if(txSearch){
+    txSearch.addEventListener("input", () => {
+      renderTransactions(filterTx(currentTxList));
+    });
+  }
+
+  // ── Bottom nav ──
+  const navNewTx = $("navNewTx");
+  if(navNewTx){
+    navNewTx.addEventListener("click", async () => {
       editingTxId = null;
       $("btnSaveTx").textContent = "Salvar";
-      btnDeleteTx.style.display = "none";
-      closeModal("modalTx");
-    }catch(e){
-      console.error(e);
-      alert(e.message || "Falha ao excluir.");
-    }
+      const del = $("btnDeleteTx");
+      if(del) del.style.display = "none";
+      openModal("modalTx");
+      setDefaultDate();
+      if(currentUser) await refreshSelects(currentUser.uid);
+    });
+  }
+
+  const navTransfer = $("navTransfer");
+  if(navTransfer) navTransfer.addEventListener("click", () => { const btn = $("btnTransfer"); if(btn) btn.click(); });
+
+  const navMore = $("navMore");
+  if(navMore) navMore.addEventListener("click", () => openModal("modalSettings"));
+
+  const navScrollTop = $("navScrollTop");
+  if(navScrollTop) navScrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  const navScrollCharts = $("navScrollCharts");
+  if(navScrollCharts) navScrollCharts.addEventListener("click", () => {
+    document.querySelector(".charts")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
+
+  const btnLogoutMobile = $("btnLogoutMobile");
+  if(btnLogoutMobile){
+    btnLogoutMobile.addEventListener("click", async () => {
+      await logout();
+      window.location.href = "./index.html";
+    });
+  }
 }
 
-// ── Bottom nav wiring ──
-const navNewTx = $("navNewTx");
-if(navNewTx){
-  navNewTx.addEventListener("click", async () => {
-    openModal("modalTx");
-    setDefaultDate();
-    if(currentUser) await refreshSelects(currentUser.uid);
-  });
-}
-
-const navTransfer = $("navTransfer");
-if(navTransfer){
-  navTransfer.addEventListener("click", () => {
-    const btn = $("btnTransfer");
-    if(btn) btn.click();
-  });
-}
-
-const navMore = $("navMore");
-if(navMore) navMore.addEventListener("click", () => openModal("modalSettings"));
-
-const navScrollTop = $("navScrollTop");
-if(navScrollTop) navScrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
-
-const navScrollCharts = $("navScrollCharts");
-if(navScrollCharts) navScrollCharts.addEventListener("click", () => {
-  document.querySelector(".charts")?.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-
-// ── Logout mobile (inside settings modal) ──
-const btnLogoutMobile = $("btnLogoutMobile");
-if(btnLogoutMobile){
-  btnLogoutMobile.addEventListener("click", async () => {
-    await logout();
-    window.location.href = "./index.html";
-  });
-}
-
-}
-
+// ─── Wire: forms ──────────────────────────────────────
 function wireForms(){
-  $("formAccount").addEventListener("submit", async (e)=>{
+  $("formAccount").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("msgAccount");
     setMsg(msg, "Salvando...", "ok");
-
     try{
       await createAccount(currentUser.uid, {
-        name: $("accName").value.trim(),
-        type: $("accType").value,
+        name:           $("accName").value.trim(),
+        type:           $("accType").value,
         initialBalance: parseMoneyBR($("accInitial").value || "0"),
       });
-
       await refreshSelects(currentUser.uid);
       setMsg(msg, "Conta criada ✅", "ok");
       e.target.reset();
-      setTimeout(()=> closeModal("modalAccount"), 350);
+      setTimeout(() => closeModal("modalAccount"), 350);
     }catch(err){
-      setMsg(msg, err.message || "Falha ao criar conta.", "err");
+      setMsg(msg, err.message || "Falha.", "err");
     }
   });
 
-
-  $("formCategory").addEventListener("submit", async (e)=>{
+  $("formCategory").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("msgCategory");
     setMsg(msg, "Salvando...", "ok");
-
     try{
-      await createCategory(currentUser.uid, {
-        name: $("catName").value.trim(),
-        type: catType,
-      });
-
+      await createCategory(currentUser.uid, { name: $("catName").value.trim(), type: catType });
       await refreshSelects(currentUser.uid);
       setMsg(msg, "Categoria criada ✅", "ok");
       e.target.reset();
-      setTimeout(()=> closeModal("modalCategory"), 350);
+      setTimeout(() => closeModal("modalCategory"), 350);
     }catch(err){
-      setMsg(msg, err.message || "Falha ao criar categoria.", "err");
+      setMsg(msg, err.message || "Falha.", "err");
     }
   });
 
-  $("formTx").addEventListener("submit", async (e)=>{
+  $("formTx").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("msgTx");
     setMsg(msg, "Salvando...", "ok");
 
     const amount = parseMoneyBR($("txAmount").value);
-    if(!Number.isFinite(amount) || amount <= 0){
-      setMsg(msg, "Valor inválido.", "err");
-      return;
-    }
+    if(!Number.isFinite(amount) || amount <= 0){ setMsg(msg, "Valor inválido.", "err"); return; }
 
     const acc = $("txAccount").value;
     const cat = $("txCategory").value;
-    if(!acc || !cat){
-      setMsg(msg, "Crie uma conta e categoria antes.", "err");
-      return;
-    }
+    if(!acc || !cat){ setMsg(msg, "Crie uma conta e categoria antes.", "err"); return; }
 
-        try{
+    try{
       const payload = {
-        type: txType,
+        type:        txType,
         amount,
-        date: $("txDate").value,
+        date:        $("txDate").value,
         description: $("txDesc").value.trim(),
-        accountId: acc,
-        categoryId: cat,
-        notes: $("txNotes").value.trim(),
+        accountId:   acc,
+        categoryId:  cat,
+        notes:       $("txNotes").value.trim(),
       };
 
       if(editingTxId){
         await updateTransaction(currentUser.uid, editingTxId, payload);
-        setMsg(msg, "Alterado com sucesso ✅", "ok");
+        setMsg(msg, "Alterado ✅", "ok");
       }else{
         await createTransaction(currentUser.uid, payload);
         setMsg(msg, "Lançamento salvo ✅", "ok");
       }
 
-      // reset modo edição
       editingTxId = null;
       $("btnSaveTx").textContent = "Salvar";
       const del = $("btnDeleteTx");
@@ -684,93 +846,14 @@ function wireForms(){
 
       e.target.reset();
       setDefaultDate();
-      setTimeout(()=> closeModal("modalTx"), 350);
+      setTimeout(() => closeModal("modalTx"), 350);
     }catch(err){
-      setMsg(msg, err.message || "Falha ao salvar lançamento.", "err");
-    
-        }
-  });
-}
-function escapeHtml(str){
-  return String(str ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-async function refreshCategories(uid){
-  categories = await listCategories(uid);
-  categoryMap = new Map(categories.map(c => [c.id, c]));
-
-  const formTransfer = $("formTransfer");
-if(formTransfer){
-  formTransfer.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const msg = $("msgTransfer");
-    setMsg(msg, "Transferindo...", "ok");
-
-    const from = $("trFrom")?.value;
-    const to = $("trTo")?.value;
-    const amount = parseMoneyBR($("trAmount")?.value);
-    const date = $("trDate")?.value;
-
-    if(!from || !to || from === to){
-      setMsg(msg, "Escolha contas diferentes.", "err");
-      return;
-    }
-    if(!Number.isFinite(amount) || amount <= 0){
-      setMsg(msg, "Valor inválido.", "err");
-      return;
-    }
-
-    try{
-      const notes = ($("trNotes")?.value || "").trim();
-      const descOut = `Transferência para ${accountMap.get(to)?.name || "conta"}`;
-      const descIn  = `Transferência de ${accountMap.get(from)?.name || "conta"}`;
-
-      const catOut = categories.find(c => c.type === "expense" && c.name === "Transferência")?.id || "";
-      const catIn  = categories.find(c => c.type === "income"  && c.name === "Transferência")?.id || "";
-
-      await createTransaction(currentUser.uid, {
-        type: "expense",
-        amount,
-        date,
-        description: descOut,
-        accountId: from,
-        categoryId: catOut,
-        notes,
-      });
-
-      await createTransaction(currentUser.uid, {
-        type: "income",
-        amount,
-        date,
-        description: descIn,
-        accountId: to,
-        categoryId: catIn,
-        notes,
-      });
-
-      setMsg(msg, "Transferência realizada ✅", "ok");
-      formTransfer.reset();
-
-      // mantém a data preenchida
-      if($("trDate")) $("trDate").value = date;
-
-      setTimeout(()=> closeModal("modalTransfer"), 350);
-    }catch(err){
-      console.error(err);
-      setMsg(msg, err.message || "Falha ao transferir.", "err");
+      setMsg(msg, err.message || "Falha.", "err");
     }
   });
 }
 
-
-}
-
-
+// ─── Auth watcher ─────────────────────────────────────
 watchAuth({
   onIn: async (user) => {
     currentUser = user;
@@ -781,48 +864,40 @@ watchAuth({
     wireButtons();
     wireForms();
 
-    // 1) Settings (meta mensal)
     if(unsubSettings) unsubSettings();
     unsubSettings = watchSettings(user.uid, {
       onChange: (data) => {
         settings = data || { monthlyBudget: 0 };
         const el = $("monthlyBudget");
-        if(el){
-          el.value = settings.monthlyBudget
-            ? String(settings.monthlyBudget).replace(".", ",")
-            : "";
-        }
+        if(el) el.value = settings.monthlyBudget
+          ? String(settings.monthlyBudget).replace(".", ",")
+          : "";
       },
       onError: console.error
     });
 
-    // 2) Accounts realtime (para cards + selects)
     if(unsubAccounts) unsubAccounts();
     unsubAccounts = watchAccounts(user.uid, {
       onChange: (items) => {
-        accounts = items;
+        accounts   = items;
         accountMap = new Map(accounts.map(a => [a.id, a]));
 
         const options = accounts.length
           ? accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join("")
           : `<option value="" disabled selected>Crie uma conta</option>`;
 
-        // selects do lançamento
         const txAcc = $("txAccount");
         if(txAcc) txAcc.innerHTML = options;
 
-        // selects da transferência (se existirem no HTML)
-        const trFrom = $("trFrom");
-        const trTo = $("trTo");
+        const trFrom = $("trFrom"), trTo = $("trTo");
         if(trFrom) trFrom.innerHTML = options;
-        if(trTo) trTo.innerHTML = options;
+        if(trTo)   trTo.innerHTML   = options;
 
         computeAccountBalances();
       },
       onError: console.error
     });
 
-    // 3) Watcher global (saldos por conta sempre corretos)
     if(unsubBalances) unsubBalances();
     unsubBalances = watchTransactionsAll(user.uid, {
       onChange: (items) => {
@@ -832,21 +907,18 @@ watchAuth({
       onError: console.error
     });
 
-    // 4) Categorias + seed automático
     await refreshCategories(user.uid);
     if(categories.length === 0){
       await seedDefaultCategories(user.uid);
       await refreshCategories(user.uid);
     }
 
-    // 5) Atualizar select de categorias conforme txType
     await refreshSelects(user.uid);
 
-    // 6) Estado inicial de visualização
-    viewMode = "month";
+    viewMode      = "month";
     selectedMonth = new Date();
 
-    document.querySelectorAll('[data-view]').forEach(b => {
+    document.querySelectorAll("[data-view]").forEach(b => {
       b.classList.toggle("active", b.dataset.view === "month");
     });
 
@@ -854,7 +926,7 @@ watchAuth({
   },
 
   onOut: () => {
-    if(unsubTx) unsubTx();
+    if(unsubTx)       unsubTx();
     if(unsubBalances) unsubBalances();
     if(unsubAccounts) unsubAccounts();
     if(unsubSettings) unsubSettings();

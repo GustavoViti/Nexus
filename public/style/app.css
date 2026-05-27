@@ -549,6 +549,79 @@ body {
 .bnav__fab:active { transform: scale(.94); }
 .bnav__fab svg { width: 22px; height: 22px; }
 
+/* ────────────────── Hero monthly sub-line ─────────────────── */
+.summary__hero__monthly {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.summary__hero__monthly .pos { font-weight: 700; }
+.summary__hero__monthly .neg { font-weight: 700; }
+
+/* ────────────────── Search ─────────────────── */
+.list__search { margin-top: 12px; }
+.list__search .input { font-size: 13px; }
+.list__search .input::-webkit-search-cancel-button { cursor: pointer; }
+
+/* ────────────────── Transaction notes ─────────────────── */
+.tx__notes {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ────────────────── Category list modal ─────────────────── */
+.catlist { padding: 4px 16px 20px; display: flex; flex-direction: column; gap: 4px; }
+
+.catgroup__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  padding: 10px 0 4px;
+}
+
+.catitem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(30,38,64,.7);
+  background: rgba(15,19,32,.6);
+  gap: 10px;
+}
+.catitem__name { font-size: 14px; font-weight: 600; }
+.catitem__type {
+  font-size: 11px;
+  color: var(--muted);
+  background: rgba(30,38,64,.6);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(30,38,64,.9);
+}
+.catitem__del {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: none; background: transparent;
+  color: var(--muted); cursor: pointer;
+  border-radius: 8px;
+  transition: background .15s, color .15s;
+  flex-shrink: 0;
+}
+.catitem__del:hover { background: rgba(239,68,68,.12); color: var(--danger); }
+
+/* ────────────────── Settings divider ─────────────────── */
+.settings__divider {
+  height: 1px;
+  background: rgba(30,38,64,.7);
+  margin: 4px 0;
+}
+
 /* ────────────────── Footer ─────────────────── */
 footer {
   padding: 32px 10%;

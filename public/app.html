@@ -4,7 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Nexus • App</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#6366F1">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nexus">
+  <link rel="apple-touch-icon" href="assets/nexus premium.png">
   <link rel="shortcut icon" href="assets/nexus premium.png" type="image/x-icon">
+
   <link rel="stylesheet" href="./style/app.css" />
 </head>
 <body>
@@ -22,7 +32,6 @@
         </div>
       </div>
     </div>
-
     <div class="topbar__right">
       <button class="iconbtn" id="btnOpenSettings" title="Configurações" aria-label="Configurações">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -39,12 +48,15 @@
 
   <main class="container">
 
-    <!-- ── Summary (Hero) ── -->
+    <!-- ── Summary (Hero: patrimônio total) ── -->
     <section class="summary">
       <div class="summary__hero">
-        <div class="summary__hero__label">Saldo do mês</div>
-        <strong class="summary__hero__value" id="sumBalance">R$ 0,00</strong>
-        <div class="summary__hero__footer" id="healthHint"></div>
+        <div class="summary__hero__label">Patrimônio total</div>
+        <strong class="summary__hero__value" id="heroPatrimonial">R$ 0,00</strong>
+        <div class="summary__hero__footer">
+          <div id="healthHint"></div>
+          <div class="summary__hero__monthly" id="heroMonthly"></div>
+        </div>
       </div>
       <div class="summary__row">
         <div class="summary__card">
@@ -62,10 +74,9 @@
     <section class="accounts">
       <div class="accounts__header">
         <h2>Contas</h2>
+        <span class="muted small">Clique para editar</span>
       </div>
-
       <div class="accounts__grid" id="accountsGrid"></div>
-
       <div class="budget" id="budgetBox" style="display:none;">
         <div class="budget__top">
           <strong>Meta de gastos do mês</strong>
@@ -88,7 +99,7 @@
         <canvas id="chartCategory"></canvas>
       </div>
       <div class="chart-card">
-        <h3>Entradas vs Saídas</h3>
+        <h3>Evolução mensal</h3>
         <canvas id="chartBalance"></canvas>
       </div>
     </section>
@@ -108,13 +119,11 @@
           <h2>Transações</h2>
           <span class="muted" id="listHint">Carregando…</span>
         </div>
-
         <div class="list__controls">
           <div class="segmented mini" role="tablist" aria-label="Modo">
             <button type="button" class="seg active" data-view="month">Mês</button>
             <button type="button" class="seg" data-view="history">Histórico</button>
           </div>
-
           <div class="monthnav" id="monthNav">
             <button class="iconbtn" id="btnPrevMonth" aria-label="Mês anterior">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -127,6 +136,10 @@
         </div>
       </div>
 
+      <div class="list__search">
+        <input class="input" id="txSearch" type="search" placeholder="Buscar transações..." autocomplete="off" />
+      </div>
+
       <div class="empty" id="emptyState">
         <div class="empty__title">Sem dados ainda</div>
         <div class="empty__text">Crie uma conta e registre um lançamento pra começar.</div>
@@ -137,7 +150,6 @@
 
   </main>
 
-  <!-- ── Footer ── -->
   <footer>
     <p>© 2026 Gustavo Viti. Todos os direitos reservados.</p>
   </footer>
@@ -150,17 +162,13 @@
       <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Novo lançamento</h3>
-        <button class="iconbtn" data-close="modalTx" aria-label="Fechar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="iconbtn" data-close="modalTx" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-
       <form class="form" id="formTx">
         <div class="segmented" role="tablist" aria-label="Tipo">
           <button type="button" class="seg active" data-type="expense">Saída</button>
           <button type="button" class="seg" data-type="income">Entrada</button>
         </div>
-
         <div class="row">
           <div class="field">
             <label class="label">Valor</label>
@@ -171,12 +179,10 @@
             <input class="input" id="txDate" type="date" required />
           </div>
         </div>
-
         <div class="field">
           <label class="label">Descrição</label>
           <input class="input" id="txDesc" placeholder="Ex: Mercado" required />
         </div>
-
         <div class="row">
           <div class="field">
             <label class="label">Conta</label>
@@ -187,12 +193,10 @@
             <select class="input" id="txCategory" required></select>
           </div>
         </div>
-
         <div class="field">
           <label class="label">Observação (opcional)</label>
           <input class="input" id="txNotes" placeholder="Ex: pago no débito" />
         </div>
-
         <button type="button" class="btn secondary" id="btnDeleteTx" style="display:none;">Excluir</button>
         <button class="btn" id="btnSaveTx" type="submit">Salvar</button>
         <div class="msg" id="msgTx"></div>
@@ -206,17 +210,13 @@
       <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Nova conta</h3>
-        <button class="iconbtn" data-close="modalAccount" aria-label="Fechar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="iconbtn" data-close="modalAccount" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-
       <form class="form" id="formAccount">
         <div class="field">
           <label class="label">Nome</label>
           <input class="input" id="accName" placeholder="Ex: Nubank / Dinheiro" required />
         </div>
-
         <div class="row">
           <div class="field">
             <label class="label">Tipo</label>
@@ -231,9 +231,36 @@
             <input class="input" id="accInitial" inputmode="decimal" placeholder="Ex: 1000,00" />
           </div>
         </div>
-
         <button class="btn" id="btnSaveAccount" type="submit">Salvar</button>
         <div class="msg" id="msgAccount"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Editar Conta -->
+  <div class="modal" id="modalEditAccount" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Editar conta</h3>
+        <button class="iconbtn" data-close="modalEditAccount" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="form" id="formEditAccount">
+        <div class="field">
+          <label class="label">Nome</label>
+          <input class="input" id="editAccName" required />
+        </div>
+        <div class="field">
+          <label class="label">Tipo</label>
+          <select class="input" id="editAccType">
+            <option value="bank">Banco</option>
+            <option value="cash">Dinheiro</option>
+            <option value="card">Cartão</option>
+          </select>
+        </div>
+        <button class="btn" type="submit" id="btnSaveEditAccount">Salvar alterações</button>
+        <button class="btn secondary" type="button" id="btnDeleteAccount">Excluir conta</button>
+        <div class="msg" id="msgEditAccount"></div>
       </form>
     </div>
   </div>
@@ -244,17 +271,13 @@
       <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Nova categoria</h3>
-        <button class="iconbtn" data-close="modalCategory" aria-label="Fechar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="iconbtn" data-close="modalCategory" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-
       <form class="form" id="formCategory">
         <div class="field">
           <label class="label">Nome</label>
           <input class="input" id="catName" placeholder="Ex: Alimentação" required />
         </div>
-
         <div class="field">
           <label class="label">Tipo</label>
           <div class="segmented">
@@ -262,10 +285,21 @@
             <button type="button" class="seg" data-cat-type="income">Entrada</button>
           </div>
         </div>
-
         <button class="btn" id="btnSaveCategory" type="submit">Salvar</button>
         <div class="msg" id="msgCategory"></div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Gerenciar Categorias -->
+  <div class="modal" id="modalManageCategories" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Categorias</h3>
+        <button class="iconbtn" data-close="modalManageCategories" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="catlist" id="catList"></div>
     </div>
   </div>
 
@@ -275,11 +309,8 @@
       <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Transferência</h3>
-        <button class="iconbtn" data-close="modalTransfer" aria-label="Fechar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="iconbtn" data-close="modalTransfer" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-
       <form class="form" id="formTransfer">
         <div class="row">
           <div class="field">
@@ -291,7 +322,6 @@
             <select class="input" id="trTo" required></select>
           </div>
         </div>
-
         <div class="row">
           <div class="field">
             <label class="label">Valor</label>
@@ -302,12 +332,10 @@
             <input class="input" id="trDate" type="date" required />
           </div>
         </div>
-
         <div class="field">
           <label class="label">Observação (opcional)</label>
           <input class="input" id="trNotes" placeholder="Ex: pagar cartão / separar dinheiro" />
         </div>
-
         <button class="btn" id="btnSaveTransfer" type="submit">Transferir</button>
         <div class="msg" id="msgTransfer"></div>
       </form>
@@ -320,78 +348,55 @@
       <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Configurações</h3>
-        <button class="iconbtn" data-close="modalSettings" aria-label="Fechar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="iconbtn" data-close="modalSettings" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-
       <div class="settings">
         <div class="field">
           <label class="label">Meta de gastos do mês (R$)</label>
           <input class="input" id="monthlyBudget" inputmode="decimal" placeholder="Ex: 1500,00" />
         </div>
         <button class="btn" id="btnSaveBudget" type="button">Salvar meta</button>
-        <div class="msg" id="msgSettings"></div>
 
-        <button class="btn secondary" id="btnSeed" style="margin-top:4px;">Criar categorias padrão</button>
+        <div class="settings__divider"></div>
+
+        <button class="btn secondary" id="btnManageCategories">Gerenciar categorias</button>
+        <button class="btn secondary" id="btnSeed">Criar categorias padrão</button>
         <p class="muted small">Use isso uma vez pra gerar categorias iniciais.</p>
 
-        <button class="btn secondary" id="btnLogoutMobile" style="margin-top:4px;">Sair da conta</button>
-      </div>
+        <div class="settings__divider"></div>
 
+        <button class="btn secondary" id="btnLogoutMobile">Sair da conta</button>
+        <div class="msg" id="msgSettings"></div>
+      </div>
       <div style="height:16px;"></div>
     </div>
   </div>
 
   <!-- ══════════════ BOTTOM NAV ══════════════ -->
   <nav class="bottom-nav" aria-label="Navegação principal">
-
     <button class="bnav__item" id="navScrollTop" aria-label="Início">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span>Início</span>
     </button>
-
     <button class="bnav__item" id="navScrollCharts" aria-label="Gráficos">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"/>
-        <line x1="12" y1="20" x2="12" y2="4"/>
-        <line x1="6" y1="20" x2="6" y2="14"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       <span>Gráficos</span>
     </button>
-
     <button class="bnav__fab" id="navNewTx" aria-label="Novo lançamento">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
-
     <button class="bnav__item" id="navTransfer" aria-label="Transferência">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="17 1 21 5 17 9"/>
-        <path d="M3 11V9a4 4 0 014-4h14"/>
-        <polyline points="7 23 3 19 7 15"/>
-        <path d="M21 13v2a4 4 0 01-4 4H3"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
       <span>Transferir</span>
     </button>
-
     <button class="bnav__item" id="navMore" aria-label="Mais opções">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <circle cx="12" cy="5" r="1" fill="currentColor"/>
-        <circle cx="12" cy="12" r="1" fill="currentColor"/>
-        <circle cx="12" cy="19" r="1" fill="currentColor"/>
-      </svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
       <span>Mais</span>
     </button>
-
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script type="module" src="./script/app.js"></script>
+  <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>

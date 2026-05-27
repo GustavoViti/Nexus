@@ -118,3 +118,23 @@ export async function setMonthlyBudget(uid, monthlyBudget) {
   const ref = doc(db, "users", uid, "settings", "main");
   await setDoc(ref, { monthlyBudget: Number(monthlyBudget || 0) }, { merge: true });
 }
+
+export async function updateAccount(uid, accountId, data) {
+  const ref = doc(db, "users", uid, "accounts", accountId);
+  await updateDoc(ref, data);
+}
+
+export async function deleteAccount(uid, accountId) {
+  const ref = doc(db, "users", uid, "accounts", accountId);
+  await deleteDoc(ref);
+}
+
+export async function updateCategory(uid, categoryId, data) {
+  const ref = doc(db, "users", uid, "categories", categoryId);
+  await updateDoc(ref, data);
+}
+
+export async function deleteCategory(uid, categoryId) {
+  const ref = doc(db, "users", uid, "categories", categoryId);
+  await deleteDoc(ref);
+}
