@@ -501,10 +501,22 @@ function renderCharts(items){
     },
     options: {
       plugins: {
-        legend: { labels: { color: "#F1F5F9", font: { size: 12, weight: "600" }, padding: 14 } }
+        legend: { display: false }
       }
     }
   });
+
+  const legendEl = document.getElementById("chartCategoryLegend");
+  if(legendEl){
+    legendEl.innerHTML = labels.length
+      ? labels.map((label, i) =>
+          `<div class="chart-legend-item">
+            <span class="chart-legend-dot" style="background:${bgColors[i]}"></span>
+            <span class="chart-legend-label" title="${label}">${label}</span>
+          </div>`
+        ).join("")
+      : "";
+  }
 
   // ── Line: monthly evolution (last 6 months from allTxCache) ──
   const now      = new Date();
