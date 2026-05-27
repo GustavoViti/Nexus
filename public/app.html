@@ -62,13 +62,18 @@
         <div class="summary__card">
           <span class="muted">Entradas</span>
           <strong class="pos" id="sumIncome">R$ 0,00</strong>
+          <span class="summary__cmp" id="cmpIncome"></span>
         </div>
         <div class="summary__card">
           <span class="muted">Saídas</span>
           <strong class="neg" id="sumExpense">R$ 0,00</strong>
+          <span class="summary__cmp" id="cmpExpense"></span>
         </div>
       </div>
     </section>
+
+    <!-- ── Insights ── -->
+    <section class="insights" id="insightsSection" style="display:none;"></section>
 
     <!-- ── Accounts ── -->
     <section class="accounts">
@@ -197,6 +202,16 @@
           <label class="label">Observação (opcional)</label>
           <input class="input" id="txNotes" placeholder="Ex: pago no débito" />
         </div>
+
+        <div class="parcelamento" id="parcelamentoSection">
+          <label class="parcelamento__label">
+            <input type="checkbox" id="txInstallment">
+            <span>Parcelamento</span>
+          </label>
+          <input class="input" id="txInstallmentCount" type="number" min="2" max="60"
+                 placeholder="Número de parcelas (ex: 6)" style="display:none;" />
+        </div>
+
         <button type="button" class="btn secondary" id="btnDeleteTx" style="display:none;">Excluir</button>
         <button class="btn" id="btnSaveTx" type="submit">Salvar</button>
         <div class="msg" id="msgTx"></div>
@@ -303,6 +318,22 @@
     </div>
   </div>
 
+  <!-- MODAL: Limites por categoria -->
+  <div class="modal" id="modalCategoryLimits" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Limites por categoria</h3>
+        <button class="iconbtn" data-close="modalCategoryLimits" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="catlist" id="catLimitsList"></div>
+      <div style="padding: 0 16px 20px; display:flex; flex-direction:column; gap:8px;">
+        <button class="btn" id="btnSaveCatLimits">Salvar limites</button>
+        <div class="msg" id="msgCatLimits"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Transferência -->
   <div class="modal" id="modalTransfer" aria-hidden="true">
     <div class="modal__panel">
@@ -359,6 +390,8 @@
 
         <div class="settings__divider"></div>
 
+        <button class="btn secondary" id="btnExportCSV">Exportar CSV</button>
+        <button class="btn secondary" id="btnCategoryLimits">Limites por categoria</button>
         <button class="btn secondary" id="btnManageCategories">Gerenciar categorias</button>
         <button class="btn secondary" id="btnSeed">Criar categorias padrão</button>
         <p class="muted small">Use isso uma vez pra gerar categorias iniciais.</p>

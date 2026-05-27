@@ -16,7 +16,8 @@ import {
   watchTransactionsAll,
   watchAccounts,
   watchSettings,
-  setMonthlyBudget
+  setMonthlyBudget,
+  setCategoryLimits
 } from "./db.js";
 
 import { seedDefaultCategories } from "./seed.js";
@@ -33,6 +34,8 @@ let unsubSettings = null;
 let allTxCache = [];
 let currentTxList = [];
 let settings = { monthlyBudget: 0 };
+
+let catLimits = {};
 
 let editingTxId       = null;
 let editingAccountId  = null;
@@ -94,6 +97,14 @@ function monthLabel(dt){
 
 function monthShort(dt){
   return dt.toLocaleString("pt-BR", { month: "short" }).replace(".","") + " " + String(dt.getFullYear()).slice(2);
+}
+
+function addMonths(dateStr, n){
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt     = new Date(y, m - 1 + n, 1);
+  const maxDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+  const day    = Math.min(d, maxDay);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 }
 
 function escapeHtml(str){
@@ -218,6 +229,124 @@ function computeDashboard(items){
   } else {
     box.style.display = "none";
   }
+
+  renderComparison(items);
+  renderInsights(items);
+}
+
+// ─── Month comparison badges ──────────────────────────
+function renderComparison(items){
+  const cmpIncome  = $("cmpIncome");
+  const cmpExpense = $("cmpExpense");
+  if(!cmpIncome || !cmpExpense) return;
+
+  if(viewMode === "history"){
+    cmpIncome.innerHTML  = "";
+    cmpExpense.innerHTML = "";
+    return;
+  }
+
+  const pm = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
+  const { startDate: pmStart, endDate: pmEnd } = getMonthRange(pm);
+  let prevIncome = 0, prevExpense = 0;
+  for(const tx of allTxCache){
+    if(tx.date < pmStart || tx.date > pmEnd) continue;
+    const amt = Number(tx.amount) || 0;
+    if(tx.type === "income") prevIncome += amt; else prevExpense += amt;
+  }
+
+  let curIncome = 0, curExpense = 0;
+  for(const tx of items){
+    const amt = Number(tx.amount) || 0;
+    if(tx.type === "income") curIncome += amt; else curExpense += amt;
+  }
+
+  const badge = (cur, prev, higherIsGood) => {
+    if(prev === 0) return "";
+    const pct  = ((cur - prev) / prev) * 100;
+    const sign = pct >= 0 ? "+" : "";
+    const cls  = (pct >= 0) === higherIsGood ? "pos" : "neg";
+    return `<span class="${cls}">${sign}${pct.toFixed(0)}% vs mês ant.</span>`;
+  };
+
+  cmpIncome.innerHTML  = badge(curIncome, prevIncome, true);
+  cmpExpense.innerHTML = badge(curExpense, prevExpense, false);
+}
+
+// ─── Insights panel ───────────────────────────────────
+function renderInsights(items){
+  const section = $("insightsSection");
+  if(!section) return;
+
+  const expenses = items.filter(tx => tx.type === "expense");
+  if(!expenses.length){ section.style.display = "none"; return; }
+
+  const chips = [];
+
+  // Biggest single expense
+  const biggest = expenses.reduce((a, b) => Number(a.amount) >= Number(b.amount) ? a : b);
+  chips.push({
+    label: "Maior gasto",
+    value: `${escapeHtml(biggest.description || "—")} · ${formatBRL(biggest.amount)}`,
+    cls: "neg"
+  });
+
+  // Top spending category
+  const byCat = {};
+  for(const tx of expenses){
+    const name = categoryMap.get(tx.categoryId)?.name || "Outros";
+    byCat[name] = (byCat[name] || 0) + (Number(tx.amount) || 0);
+  }
+  const [topName, topAmt] = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0] || [];
+  if(topName) chips.push({
+    label: "Categoria líder",
+    value: `${escapeHtml(topName)} · ${formatBRL(topAmt)}`,
+    cls: "neg"
+  });
+
+  // Savings rate
+  let income = 0, expense = 0;
+  for(const tx of items){
+    const amt = Number(tx.amount) || 0;
+    if(tx.type === "income") income += amt; else expense += amt;
+  }
+  if(income > 0){
+    const rate = ((income - expense) / income) * 100;
+    const cls  = rate >= 20 ? "pos" : rate < 0 ? "neg" : "warn";
+    chips.push({ label: "Taxa de economia", value: `${rate.toFixed(0)}% da renda`, cls });
+  }
+
+  // Net vs prev month
+  if(viewMode !== "history"){
+    const pm = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
+    const { startDate: pmStart, endDate: pmEnd } = getMonthRange(pm);
+    let prevInc = 0, prevExp = 0;
+    for(const tx of allTxCache){
+      if(tx.date < pmStart || tx.date > pmEnd) continue;
+      const amt = Number(tx.amount) || 0;
+      if(tx.type === "income") prevInc += amt; else prevExp += amt;
+    }
+    const prevNet = prevInc - prevExp;
+    const curNet  = income  - expense;
+    if(prevNet !== 0){
+      const diff = curNet - prevNet;
+      const sign = diff >= 0 ? "+" : "";
+      const cls  = diff >= 0 ? "pos" : "neg";
+      chips.push({ label: "vs mês anterior", value: `${sign}${formatBRL(diff)} no saldo`, cls });
+    }
+  }
+
+  section.style.display = "block";
+  section.innerHTML = `
+    <div class="insights__scroll">
+      ${chips.map(c => `
+        <div class="insight__chip">
+          <div class="insight__chip__label">${c.label}</div>
+          <div class="insight__chip__value ${c.cls}">${c.value}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 // ─── Account balances + patrimônio total ──────────────
@@ -428,6 +557,69 @@ function renderCharts(items){
       }
     }
   });
+}
+
+// ─── Category limits modal ────────────────────────────
+function renderCategoryLimits(){
+  const el = $("catLimitsList");
+  if(!el) return;
+
+  const expCats = categories.filter(c => c.type === "expense");
+  if(!expCats.length){
+    el.innerHTML = `<div class="muted" style="padding:16px">Nenhuma categoria de saída.</div>`;
+    return;
+  }
+
+  const spent = {};
+  for(const tx of currentTxList){
+    if(tx.type !== "expense") continue;
+    spent[tx.categoryId] = (spent[tx.categoryId] || 0) + (Number(tx.amount) || 0);
+  }
+
+  el.innerHTML = expCats.map(c => {
+    const s     = spent[c.id] || 0;
+    const limit = catLimits[c.id] || 0;
+    const pct   = limit > 0 ? Math.min(100, (s / limit) * 100) : 0;
+    const barColor = pct >= 100 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#6366F1";
+    return `
+      <div class="catlimit__item">
+        <div class="catlimit__top">
+          <div class="catlimit__name">${escapeHtml(c.name)}</div>
+          <div class="catlimit__spent">${formatBRL(s)}${limit > 0 ? " / " + formatBRL(limit) : ""}</div>
+        </div>
+        ${limit > 0 ? `<div class="catlimit__bar-wrap"><div class="catlimit__bar" style="width:${pct}%;background:${barColor}"></div></div>` : ""}
+        <input class="catlimit__input" type="text" inputmode="decimal"
+               data-cat-id="${c.id}"
+               value="${limit ? String(limit).replace(".", ",") : ""}"
+               placeholder="Limite mensal (ex: 500,00)" />
+      </div>
+    `;
+  }).join("");
+}
+
+// ─── Export CSV ───────────────────────────────────────
+function exportCSV(){
+  const list = viewMode === "history" ? allTxCache : currentTxList;
+  const BOM  = "﻿";
+  const header = ["Data","Tipo","Descrição","Valor","Conta","Categoria","Observação"].join(";");
+  const rows = list.map(tx => [
+    tx.date || "",
+    tx.type === "income" ? "Entrada" : "Saída",
+    `"${(tx.description || "").replace(/"/g, '""')}"`,
+    String(Number(tx.amount) || 0).replace(".", ","),
+    `"${(accountMap.get(tx.accountId)?.name  || "").replace(/"/g, '""')}"`,
+    `"${(categoryMap.get(tx.categoryId)?.name || "").replace(/"/g, '""')}"`,
+    `"${(tx.notes || "").replace(/"/g, '""')}"`,
+  ].join(";"));
+
+  const csv  = BOM + header + "\n" + rows.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `nexus-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Render category list ─────────────────────────────
@@ -727,6 +919,52 @@ function wireButtons(){
     });
   }
 
+  // ── Export CSV ──
+  const btnExportCSV = $("btnExportCSV");
+  if(btnExportCSV) btnExportCSV.addEventListener("click", () => exportCSV());
+
+  // ── Category limits ──
+  const btnCategoryLimits = $("btnCategoryLimits");
+  if(btnCategoryLimits){
+    btnCategoryLimits.addEventListener("click", () => {
+      closeModal("modalSettings");
+      renderCategoryLimits();
+      openModal("modalCategoryLimits");
+    });
+  }
+
+  const btnSaveCatLimits = $("btnSaveCatLimits");
+  if(btnSaveCatLimits){
+    btnSaveCatLimits.addEventListener("click", async () => {
+      const msg    = $("msgCatLimits");
+      const inputs = document.querySelectorAll("#catLimitsList .catlimit__input");
+      const limits = {};
+      for(const inp of inputs){
+        const catId = inp.dataset.catId;
+        const val   = parseMoneyBR(inp.value || "0");
+        if(catId && Number.isFinite(val) && val > 0) limits[catId] = val;
+      }
+      setMsg(msg, "Salvando...", "ok");
+      try{
+        await setCategoryLimits(currentUser.uid, limits);
+        catLimits = limits;
+        setMsg(msg, "Limites salvos ✅", "ok");
+        setTimeout(() => closeModal("modalCategoryLimits"), 600);
+      }catch(e){
+        setMsg(msg, e.message || "Falha.", "err");
+      }
+    });
+  }
+
+  // ── Parcelamento toggle ──
+  const txInstallment = $("txInstallment");
+  if(txInstallment){
+    txInstallment.addEventListener("change", () => {
+      const countInput = $("txInstallmentCount");
+      if(countInput) countInput.style.display = txInstallment.checked ? "block" : "none";
+    });
+  }
+
   // ── Search ──
   const txSearch = $("txSearch");
   if(txSearch){
@@ -821,7 +1059,13 @@ function wireForms(){
     if(!acc || !cat){ setMsg(msg, "Crie uma conta e categoria antes.", "err"); return; }
 
     try{
-      const payload = {
+      const installmentCheck = $("txInstallment");
+      const isInstallment    = !editingTxId && (installmentCheck?.checked === true);
+      const installmentCount = isInstallment
+        ? Math.max(2, Math.min(60, parseInt($("txInstallmentCount")?.value || "2")))
+        : 1;
+
+      const basePayload = {
         type:        txType,
         amount,
         date:        $("txDate").value,
@@ -832,10 +1076,20 @@ function wireForms(){
       };
 
       if(editingTxId){
-        await updateTransaction(currentUser.uid, editingTxId, payload);
+        await updateTransaction(currentUser.uid, editingTxId, basePayload);
         setMsg(msg, "Alterado ✅", "ok");
+      }else if(isInstallment){
+        const baseDesc = basePayload.description;
+        for(let i = 0; i < installmentCount; i++){
+          await createTransaction(currentUser.uid, {
+            ...basePayload,
+            date:        addMonths(basePayload.date, i),
+            description: `${baseDesc} (${i + 1}/${installmentCount})`,
+          });
+        }
+        setMsg(msg, `${installmentCount} parcelas criadas ✅`, "ok");
       }else{
-        await createTransaction(currentUser.uid, payload);
+        await createTransaction(currentUser.uid, basePayload);
         setMsg(msg, "Lançamento salvo ✅", "ok");
       }
 
@@ -843,6 +1097,8 @@ function wireForms(){
       $("btnSaveTx").textContent = "Salvar";
       const del = $("btnDeleteTx");
       if(del) del.style.display = "none";
+      if(installmentCheck) installmentCheck.checked = false;
+      if($("txInstallmentCount")) $("txInstallmentCount").style.display = "none";
 
       e.target.reset();
       setDefaultDate();
@@ -867,8 +1123,9 @@ watchAuth({
     if(unsubSettings) unsubSettings();
     unsubSettings = watchSettings(user.uid, {
       onChange: (data) => {
-        settings = data || { monthlyBudget: 0 };
-        const el = $("monthlyBudget");
+        settings  = data || { monthlyBudget: 0 };
+        catLimits = settings.categoryLimits || {};
+        const el  = $("monthlyBudget");
         if(el) el.value = settings.monthlyBudget
           ? String(settings.monthlyBudget).replace(".", ",")
           : "";

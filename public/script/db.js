@@ -138,3 +138,8 @@ export async function deleteCategory(uid, categoryId) {
   const ref = doc(db, "users", uid, "categories", categoryId);
   await deleteDoc(ref);
 }
+
+export async function setCategoryLimits(uid, limits) {
+  const ref = doc(db, "users", uid, "settings", "main");
+  await setDoc(ref, { categoryLimits: limits }, { merge: true });
+}
