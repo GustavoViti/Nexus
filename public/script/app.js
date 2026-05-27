@@ -4,6 +4,8 @@ import {
   createAccount,
   createCategory,
   createTransaction,
+  updateTransaction,
+  deleteTransaction,
   listAccounts,
   listCategories,
   watchTransactionsMonth,
@@ -28,6 +30,8 @@ let unsubSettings = null;
 
 let allTxCache = [];
 let settings = { monthlyBudget: 0 };
+
+let editingTxId = null;
 
 
 let viewMode = "month"; // "month" | "history"
@@ -126,7 +130,7 @@ function renderTransactions(items){
     ].filter(Boolean).join(" ");
 
     return `
-      <div class="tx">
+      <div class="tx" data-id="${tx.id}">
         <div class="tx__left">
           <div class="tx__title">${escapeHtml(tx.description || "Sem descrição")}</div>
           <div class="tx__meta">${escapeHtml(metaParts)}</div>
@@ -137,6 +141,44 @@ function renderTransactions(items){
       </div>
     `;
   }).join("");
+
+    // depois do innerHTML:
+  list.querySelectorAll(".tx").forEach(el => {
+    el.addEventListener("click", async () => {
+      const id = el.dataset.id;
+      const tx = items.find(t => t.id === id);
+      if(tx) await openEditModal(tx);
+    });
+  });
+}
+
+
+async function openEditModal(tx){
+  editingTxId = tx.id;
+  txType = tx.type;
+
+  // ativa o tipo correto no segmented
+  document.querySelectorAll("#modalTx .seg").forEach(b => {
+    b.classList.toggle("active", b.dataset.type === txType);
+  });
+
+  // recarrega categorias do tipo correto antes de setar o value
+  if(currentUser) await refreshSelects(currentUser.uid);
+
+  openModal("modalTx");
+
+  $("txAmount").value = String(tx.amount).replace(".", ",");
+  $("txDate").value = tx.date;
+  $("txDesc").value = tx.description || "";
+  $("txAccount").value = tx.accountId;
+  $("txCategory").value = tx.categoryId;
+  $("txNotes").value = tx.notes || "";
+
+  $("btnSaveTx").textContent = "Salvar alterações";
+
+  // mostrar botão excluir (se existir no HTML)
+  const del = $("btnDeleteTx");
+  if(del) del.style.display = "block";
 }
 
 function computeDashboard(items){
@@ -267,18 +309,31 @@ function renderCharts(items){
     }
   }
 
+  const PALETTE = [
+    "#6366F1","#8B5CF6","#EC4899","#F59E0B",
+    "#10B981","#06B6D4","#F97316","#84CC16",
+    "#EF4444","#3B82F6","#E879F9","#14B8A6",
+  ];
+
+  const labels = Object.keys(byCategory);
+  const bgColors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+
   // Gráfico pizza por categoria
   chartCategory = new Chart(ctxCat, {
     type: "doughnut",
     data: {
-      labels: Object.keys(byCategory),
+      labels,
       datasets: [{
         data: Object.values(byCategory),
+        backgroundColor: bgColors,
+        borderWidth: 2,
+        borderColor: "rgba(8,11,18,.9)",
+        hoverOffset: 6,
       }]
     },
     options: {
       plugins: {
-        legend: { labels: { color: "#F3F4F6" } }
+        legend: { labels: { color: "#F1F5F9", font: { size: 12, weight: "600" }, padding: 14 } }
       }
     }
   });
@@ -290,7 +345,9 @@ function renderCharts(items){
       labels: ["Entradas", "Saídas"],
       datasets: [{
         data: [income, expense],
-        backgroundColor: ["#22C55E", "#EF4444"]
+        backgroundColor: ["rgba(99,102,241,.8)", "rgba(239,68,68,.8)"],
+        borderRadius: 8,
+        borderSkipped: false,
       }]
     },
     options: {
@@ -298,8 +355,8 @@ function renderCharts(items){
         legend: { display: false }
       },
       scales: {
-        y: { ticks: { color: "#F3F4F6" } },
-        x: { ticks: { color: "#F3F4F6" } }
+        y: { ticks: { color: "#8B95B0" }, grid: { color: "rgba(30,38,64,.5)" } },
+        x: { ticks: { color: "#8B95B0" }, grid: { display: false } }
       }
     }
   });
@@ -480,6 +537,62 @@ if(btnTransfer){
   });
 }
 
+const btnDeleteTx = $("btnDeleteTx");
+if(btnDeleteTx){
+  btnDeleteTx.addEventListener("click", async () => {
+    if(!editingTxId) return;
+    if(!confirm("Deseja realmente excluir esta transação?")) return;
+
+    try{
+      await deleteTransaction(currentUser.uid, editingTxId);
+      editingTxId = null;
+      $("btnSaveTx").textContent = "Salvar";
+      btnDeleteTx.style.display = "none";
+      closeModal("modalTx");
+    }catch(e){
+      console.error(e);
+      alert(e.message || "Falha ao excluir.");
+    }
+  });
+}
+
+// ── Bottom nav wiring ──
+const navNewTx = $("navNewTx");
+if(navNewTx){
+  navNewTx.addEventListener("click", async () => {
+    openModal("modalTx");
+    setDefaultDate();
+    if(currentUser) await refreshSelects(currentUser.uid);
+  });
+}
+
+const navTransfer = $("navTransfer");
+if(navTransfer){
+  navTransfer.addEventListener("click", () => {
+    const btn = $("btnTransfer");
+    if(btn) btn.click();
+  });
+}
+
+const navMore = $("navMore");
+if(navMore) navMore.addEventListener("click", () => openModal("modalSettings"));
+
+const navScrollTop = $("navScrollTop");
+if(navScrollTop) navScrollTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+const navScrollCharts = $("navScrollCharts");
+if(navScrollCharts) navScrollCharts.addEventListener("click", () => {
+  document.querySelector(".charts")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+// ── Logout mobile (inside settings modal) ──
+const btnLogoutMobile = $("btnLogoutMobile");
+if(btnLogoutMobile){
+  btnLogoutMobile.addEventListener("click", async () => {
+    await logout();
+    window.location.href = "./index.html";
+  });
+}
 
 }
 
@@ -504,6 +617,7 @@ function wireForms(){
       setMsg(msg, err.message || "Falha ao criar conta.", "err");
     }
   });
+
 
   $("formCategory").addEventListener("submit", async (e)=>{
     e.preventDefault();
@@ -543,27 +657,40 @@ function wireForms(){
       return;
     }
 
-    try{
-      await createTransaction(currentUser.uid, {
+        try{
+      const payload = {
         type: txType,
         amount,
-        date: $("txDate").value, // YYYY-MM-DD
+        date: $("txDate").value,
         description: $("txDesc").value.trim(),
         accountId: acc,
         categoryId: cat,
         notes: $("txNotes").value.trim(),
-      });
+      };
 
-      setMsg(msg, "Lançamento salvo ✅", "ok");
+      if(editingTxId){
+        await updateTransaction(currentUser.uid, editingTxId, payload);
+        setMsg(msg, "Alterado com sucesso ✅", "ok");
+      }else{
+        await createTransaction(currentUser.uid, payload);
+        setMsg(msg, "Lançamento salvo ✅", "ok");
+      }
+
+      // reset modo edição
+      editingTxId = null;
+      $("btnSaveTx").textContent = "Salvar";
+      const del = $("btnDeleteTx");
+      if(del) del.style.display = "none";
+
       e.target.reset();
       setDefaultDate();
       setTimeout(()=> closeModal("modalTx"), 350);
     }catch(err){
       setMsg(msg, err.message || "Falha ao salvar lançamento.", "err");
-    }
+    
+        }
   });
 }
-
 function escapeHtml(str){
   return String(str ?? "")
     .replaceAll("&","&amp;")

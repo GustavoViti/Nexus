@@ -8,10 +8,14 @@
   <link rel="stylesheet" href="./style/app.css" />
 </head>
 <body>
+
+  <!-- ── Topbar ── -->
   <header class="topbar">
     <div class="topbar__left">
       <div class="brand">
-        <div class="logo" aria-hidden="true"><img src="assets/logo_fundo_branco.png" alt=""></div>
+        <div class="logo" aria-hidden="true">
+          <img src="assets/logo_fundo_branco.png" alt="">
+        </div>
         <div>
           <div class="brand__name">Nexus</div>
           <div class="brand__sub" id="userLabel">Carregando...</div>
@@ -20,112 +24,135 @@
     </div>
 
     <div class="topbar__right">
-      <button class="iconbtn" id="btnOpenSettings" title="Configurações" aria-label="Configurações">⚙️</button>
-      <button class="iconbtn" id="btnLogout" title="Sair" aria-label="Sair">🚪</button>
+      <button class="iconbtn" id="btnOpenSettings" title="Configurações" aria-label="Configurações">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </button>
+      <button class="iconbtn" id="btnLogout" title="Sair" aria-label="Sair">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
     </div>
   </header>
 
   <main class="container">
-    <!-- Resumo (vai ficar zerado no começo) -->
+
+    <!-- ── Summary (Hero) ── -->
     <section class="summary">
-      <div class="summary__card">
-        <span class="muted">Saldo (mês)</span>
-        <strong id="sumBalance">R$ 0,00</strong>
+      <div class="summary__hero">
+        <div class="summary__hero__label">Saldo do mês</div>
+        <strong class="summary__hero__value" id="sumBalance">R$ 0,00</strong>
+        <div class="summary__hero__footer" id="healthHint"></div>
       </div>
-      <div class="summary__card">
-        <span class="muted">Entradas</span>
-        <strong class="pos" id="sumIncome">R$ 0,00</strong>
-      </div>
-      <div class="summary__card">
-        <span class="muted">Saídas</span>
-        <strong class="neg" id="sumExpense">R$ 0,00</strong>
+      <div class="summary__row">
+        <div class="summary__card">
+          <span class="muted">Entradas</span>
+          <strong class="pos" id="sumIncome">R$ 0,00</strong>
+        </div>
+        <div class="summary__card">
+          <span class="muted">Saídas</span>
+          <strong class="neg" id="sumExpense">R$ 0,00</strong>
+        </div>
       </div>
     </section>
 
+    <!-- ── Accounts ── -->
     <section class="accounts">
-  <div class="accounts__header">
-    <h2>Contas</h2>
-    <span class="muted" id="healthHint">Saúde financeira: —</span>
-  </div>
+      <div class="accounts__header">
+        <h2>Contas</h2>
+      </div>
 
-  <div class="accounts__grid" id="accountsGrid"></div>
+      <div class="accounts__grid" id="accountsGrid"></div>
 
-  <div class="budget" id="budgetBox" style="display:none;">
-    <div class="budget__top">
-      <strong>Meta de gastos do mês</strong>
-      <span class="muted" id="budgetLabel">—</span>
-    </div>
-    <div class="budget__bar">
-      <div class="budget__fill" id="budgetFill" style="width:0%"></div>
-    </div>
-    <div class="budget__bottom">
-      <span class="muted" id="budgetSpent">Gasto: —</span>
-      <span class="muted" id="budgetRemaining">Restante: —</span>
-    </div>
-  </div>
-</section>
+      <div class="budget" id="budgetBox" style="display:none;">
+        <div class="budget__top">
+          <strong>Meta de gastos do mês</strong>
+          <span class="muted" id="budgetLabel">—</span>
+        </div>
+        <div class="budget__bar">
+          <div class="budget__fill" id="budgetFill" style="width:0%"></div>
+        </div>
+        <div class="budget__bottom">
+          <span class="muted" id="budgetSpent">Gasto: —</span>
+          <span class="muted" id="budgetRemaining">Restante: —</span>
+        </div>
+      </div>
+    </section>
 
-
+    <!-- ── Charts ── -->
     <section class="charts">
-  <div class="chart-card">
-    <h3>Distribuição por categoria</h3>
-    <canvas id="chartCategory"></canvas>
-  </div>
+      <div class="chart-card">
+        <h3>Distribuição por categoria</h3>
+        <canvas id="chartCategory"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Entradas vs Saídas</h3>
+        <canvas id="chartBalance"></canvas>
+      </div>
+    </section>
 
-  <div class="chart-card">
-    <h3>Entradas vs Saídas</h3>
-    <canvas id="chartBalance"></canvas>
-  </div>
-</section>
+    <!-- ── Quick Actions ── -->
+    <section class="actions">
+      <button class="btn" id="btnNewTx">+ Lançamento</button>
+      <button class="btn secondary" id="btnTransfer">↔ Transferência</button>
+      <button class="btn secondary" id="btnNewAccount">+ Conta</button>
+      <button class="btn secondary" id="btnNewCategory">+ Categoria</button>
+    </section>
 
+    <!-- ── Transaction List ── -->
+    <section class="list">
+      <div class="list__header">
+        <div class="list__title">
+          <h2>Transações</h2>
+          <span class="muted" id="listHint">Carregando…</span>
+        </div>
 
-    <!-- Ações rápidas -->
-<section class="actions">
-  <button class="btn" id="btnNewTx">+ Lançamento</button>
-  <button class="btn secondary" id="btnTransfer">↔ Transferência</button>
-  <button class="btn secondary" id="btnNewAccount">+ Conta</button>
-  <button class="btn secondary" id="btnNewCategory">+ Categoria</button>
-</section>
+        <div class="list__controls">
+          <div class="segmented mini" role="tablist" aria-label="Modo">
+            <button type="button" class="seg active" data-view="month">Mês</button>
+            <button type="button" class="seg" data-view="history">Histórico</button>
+          </div>
 
-
-   <!-- Lista -->
-<section class="list">
-  <div class="list__header">
-    <div class="list__title">
-      <h2>Transações</h2>
-      <span class="muted" id="listHint">Carregando…</span>
-    </div>
-
-    <div class="list__controls">
-      <div class="segmented mini" role="tablist" aria-label="Modo">
-        <button type="button" class="seg active" data-view="month">Mês</button>
-        <button type="button" class="seg" data-view="history">Histórico</button>
+          <div class="monthnav" id="monthNav">
+            <button class="iconbtn" id="btnPrevMonth" aria-label="Mês anterior">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="monthnav__label" id="monthLabel">—</div>
+            <button class="iconbtn" id="btnNextMonth" aria-label="Próximo mês">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="monthnav" id="monthNav">
-        <button class="iconbtn" id="btnPrevMonth" aria-label="Mês anterior">←</button>
-        <div class="monthnav__label" id="monthLabel">—</div>
-        <button class="iconbtn" id="btnNextMonth" aria-label="Próximo mês">→</button>
+      <div class="empty" id="emptyState">
+        <div class="empty__title">Sem dados ainda</div>
+        <div class="empty__text">Crie uma conta e registre um lançamento pra começar.</div>
       </div>
-    </div>
-  </div>
 
-  <div class="empty" id="emptyState">
-    <div class="empty__title">Sem dados ainda</div>
-    <div class="empty__text">Crie uma conta e registre um lançamento pra começar.</div>
-  </div>
-
-  <div class="txlist" id="txList"></div>
-</section>
+      <div class="txlist" id="txList"></div>
+    </section>
 
   </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>© 2026 Gustavo Viti. Todos os direitos reservados.</p>
+  </footer>
+
+  <!-- ══════════════ MODALS ══════════════ -->
 
   <!-- MODAL: Nova Transação -->
   <div class="modal" id="modalTx" aria-hidden="true">
     <div class="modal__panel">
+      <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Novo lançamento</h3>
-        <button class="iconbtn" data-close="modalTx" aria-label="Fechar">✕</button>
+        <button class="iconbtn" data-close="modalTx" aria-label="Fechar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <form class="form" id="formTx">
@@ -166,6 +193,7 @@
           <input class="input" id="txNotes" placeholder="Ex: pago no débito" />
         </div>
 
+        <button type="button" class="btn secondary" id="btnDeleteTx" style="display:none;">Excluir</button>
         <button class="btn" id="btnSaveTx" type="submit">Salvar</button>
         <div class="msg" id="msgTx"></div>
       </form>
@@ -175,9 +203,12 @@
   <!-- MODAL: Nova Conta -->
   <div class="modal" id="modalAccount" aria-hidden="true">
     <div class="modal__panel">
+      <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Nova conta</h3>
-        <button class="iconbtn" data-close="modalAccount" aria-label="Fechar">✕</button>
+        <button class="iconbtn" data-close="modalAccount" aria-label="Fechar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <form class="form" id="formAccount">
@@ -195,7 +226,6 @@
               <option value="card">Cartão</option>
             </select>
           </div>
-
           <div class="field">
             <label class="label">Saldo inicial</label>
             <input class="input" id="accInitial" inputmode="decimal" placeholder="Ex: 1000,00" />
@@ -211,9 +241,12 @@
   <!-- MODAL: Nova Categoria -->
   <div class="modal" id="modalCategory" aria-hidden="true">
     <div class="modal__panel">
+      <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Nova categoria</h3>
-        <button class="iconbtn" data-close="modalCategory" aria-label="Fechar">✕</button>
+        <button class="iconbtn" data-close="modalCategory" aria-label="Fechar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <form class="form" id="formCategory">
@@ -237,70 +270,127 @@
   </div>
 
   <!-- MODAL: Transferência -->
-<div class="modal" id="modalTransfer" aria-hidden="true">
-  <div class="modal__panel">
-    <div class="modal__header">
-      <h3>Transferência</h3>
-      <button class="iconbtn" data-close="modalTransfer" aria-label="Fechar">✕</button>
+  <div class="modal" id="modalTransfer" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Transferência</h3>
+        <button class="iconbtn" data-close="modalTransfer" aria-label="Fechar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form class="form" id="formTransfer">
+        <div class="row">
+          <div class="field">
+            <label class="label">De (conta origem)</label>
+            <select class="input" id="trFrom" required></select>
+          </div>
+          <div class="field">
+            <label class="label">Para (conta destino)</label>
+            <select class="input" id="trTo" required></select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label">Valor</label>
+            <input class="input" id="trAmount" inputmode="decimal" placeholder="Ex: 200,00" required />
+          </div>
+          <div class="field">
+            <label class="label">Data</label>
+            <input class="input" id="trDate" type="date" required />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">Observação (opcional)</label>
+          <input class="input" id="trNotes" placeholder="Ex: pagar cartão / separar dinheiro" />
+        </div>
+
+        <button class="btn" id="btnSaveTransfer" type="submit">Transferir</button>
+        <div class="msg" id="msgTransfer"></div>
+      </form>
     </div>
-
-    <form class="form" id="formTransfer">
-      <div class="row">
-        <div class="field">
-          <label class="label">De (conta origem)</label>
-          <select class="input" id="trFrom" required></select>
-        </div>
-        <div class="field">
-          <label class="label">Para (conta destino)</label>
-          <select class="input" id="trTo" required></select>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="field">
-          <label class="label">Valor</label>
-          <input class="input" id="trAmount" inputmode="decimal" placeholder="Ex: 200,00" required />
-        </div>
-        <div class="field">
-          <label class="label">Data</label>
-          <input class="input" id="trDate" type="date" required />
-        </div>
-      </div>
-
-      <div class="field">
-        <label class="label">Observação (opcional)</label>
-        <input class="input" id="trNotes" placeholder="Ex: pagar cartão / separar dinheiro" />
-      </div>
-
-      <button class="btn" id="btnSaveTransfer" type="submit">Transferir</button>
-      <div class="msg" id="msgTransfer"></div>
-    </form>
   </div>
-</div>
 
-
-  <!-- MODAL: Config -->
+  <!-- MODAL: Configurações -->
   <div class="modal" id="modalSettings" aria-hidden="true">
     <div class="modal__panel">
+      <div class="modal__handle"></div>
       <div class="modal__header">
         <h3>Configurações</h3>
-        <button class="iconbtn" data-close="modalSettings" aria-label="Fechar">✕</button>
+        <button class="iconbtn" data-close="modalSettings" aria-label="Fechar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <div class="settings">
-        <button class="btn secondary" id="btnSeed">Criar categorias padrão</button>
-        <p class="muted small">Use isso uma vez pra gerar categorias iniciais (saída/entrada).</p>
+        <div class="field">
+          <label class="label">Meta de gastos do mês (R$)</label>
+          <input class="input" id="monthlyBudget" inputmode="decimal" placeholder="Ex: 1500,00" />
+        </div>
+        <button class="btn" id="btnSaveBudget" type="button">Salvar meta</button>
         <div class="msg" id="msgSettings"></div>
+
+        <button class="btn secondary" id="btnSeed" style="margin-top:4px;">Criar categorias padrão</button>
+        <p class="muted small">Use isso uma vez pra gerar categorias iniciais.</p>
+
+        <button class="btn secondary" id="btnLogoutMobile" style="margin-top:4px;">Sair da conta</button>
       </div>
 
-      <div class="field" style="margin-top:12px;">
-  <label class="label">Meta de gastos do mês (R$)</label>
-  <input class="input" id="monthlyBudget" inputmode="decimal" placeholder="Ex: 1500,00" />
-</div>
-<button class="btn secondary" id="btnSaveBudget" type="button">Salvar meta</button>
-
+      <div style="height:16px;"></div>
     </div>
   </div>
+
+  <!-- ══════════════ BOTTOM NAV ══════════════ -->
+  <nav class="bottom-nav" aria-label="Navegação principal">
+
+    <button class="bnav__item" id="navScrollTop" aria-label="Início">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>Início</span>
+    </button>
+
+    <button class="bnav__item" id="navScrollCharts" aria-label="Gráficos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Gráficos</span>
+    </button>
+
+    <button class="bnav__fab" id="navNewTx" aria-label="Novo lançamento">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
+
+    <button class="bnav__item" id="navTransfer" aria-label="Transferência">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"/>
+        <path d="M3 11V9a4 4 0 014-4h14"/>
+        <polyline points="7 23 3 19 7 15"/>
+        <path d="M21 13v2a4 4 0 01-4 4H3"/>
+      </svg>
+      <span>Transferir</span>
+    </button>
+
+    <button class="bnav__item" id="navMore" aria-label="Mais opções">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="5" r="1" fill="currentColor"/>
+        <circle cx="12" cy="12" r="1" fill="currentColor"/>
+        <circle cx="12" cy="19" r="1" fill="currentColor"/>
+      </svg>
+      <span>Mais</span>
+    </button>
+
+  </nav>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script type="module" src="./script/app.js"></script>
 </body>

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\" -Recurse -Force | Select-Object FullName, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Sort-Object FullName)",
+      "PowerShell(cd \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\"; Get-ChildItem -Recurse | ForEach-Object { $_.FullName })",
+      "Bash(dir /a /s *.json *.config.* *.env*)"
+    ]
+  }
+}

@@ -3,6 +3,18 @@ import {
   collection, doc, addDoc, getDocs, query, orderBy, where, onSnapshot,
   serverTimestamp, setDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {updateDoc, deleteDoc } from 
+"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+export async function updateTransaction(uid, txId, data){
+  const ref = doc(db, "users", uid, "transactions", txId);
+  await updateDoc(ref, data);
+}
+
+export async function deleteTransaction(uid, txId){
+  const ref = doc(db, "users", uid, "transactions", txId);
+  await deleteDoc(ref);
+}
 
 export async function createAccount(uid, { name, type, initialBalance }) {
   const ref = collection(db, "users", uid, "accounts");
