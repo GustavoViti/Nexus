@@ -144,8 +144,21 @@ async function refreshCategories(uid){
         const notes  = ($("trNotes")?.value || "").trim();
         const descOut = `Transferência para ${accountMap.get(to)?.name  || "conta"}`;
         const descIn  = `Transferência de ${accountMap.get(from)?.name || "conta"}`;
-        const catOut  = categories.find(c => c.type === "expense" && c.name === "Transferência")?.id || "";
-        const catIn   = categories.find(c => c.type === "income"  && c.name === "Transferência")?.id || "";
+
+        let catOutObj = categories.find(c => c.type === "expense" && c.name === "Transferência");
+        let catInObj  = categories.find(c => c.type === "income"  && c.name === "Transferência");
+        if(!catOutObj){
+          const ref = await createCategory(currentUser.uid, { name: "Transferência", type: "expense" });
+          catOutObj = { id: ref.id };
+          await refreshCategories(currentUser.uid);
+        }
+        if(!catInObj){
+          const ref = await createCategory(currentUser.uid, { name: "Transferência", type: "income" });
+          catInObj  = { id: ref.id };
+          await refreshCategories(currentUser.uid);
+        }
+        const catOut = catOutObj.id;
+        const catIn  = catInObj.id;
 
         await createTransaction(currentUser.uid, { type:"expense", amount, date, description:descOut, accountId:from, categoryId:catOut, notes });
         await createTransaction(currentUser.uid, { type:"income",  amount, date, description:descIn,  accountId:to,   categoryId:catIn,  notes });
@@ -172,14 +185,18 @@ async function refreshSelects(uid){
 }
 
 // ─── Search / filter ──────────────────────────────────
+function normalizeStr(str){
+  return String(str || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
 function filterTx(items){
-  const q = ($("txSearch")?.value || "").trim().toLowerCase();
+  const q = normalizeStr($("txSearch")?.value || "").trim();
   if(!q) return items;
   return items.filter(tx => {
-    const desc  = (tx.description || "").toLowerCase();
-    const notes = (tx.notes       || "").toLowerCase();
-    const cat   = (categoryMap.get(tx.categoryId)?.name || "").toLowerCase();
-    const acc   = (accountMap.get(tx.accountId)?.name   || "").toLowerCase();
+    const desc  = normalizeStr(tx.description);
+    const notes = normalizeStr(tx.notes);
+    const cat   = normalizeStr(categoryMap.get(tx.categoryId)?.name);
+    const acc   = normalizeStr(accountMap.get(tx.accountId)?.name);
     return desc.includes(q) || notes.includes(q) || cat.includes(q) || acc.includes(q);
   });
 }
@@ -282,6 +299,27 @@ function renderInsights(items){
   if(!expenses.length){ section.style.display = "none"; return; }
 
   const chips = [];
+
+  // Category limit alerts
+  const spentById = {};
+  for(const tx of expenses){
+    spentById[tx.categoryId] = (spentById[tx.categoryId] || 0) + (Number(tx.amount) || 0);
+  }
+  for(const [catId, limit] of Object.entries(catLimits)){
+    if(!(limit > 0)) continue;
+    const cat      = categoryMap.get(catId);
+    if(!cat) continue;
+    const spentAmt = spentById[catId] || 0;
+    const pct      = spentAmt / limit;
+    if(pct >= 0.8){
+      const over  = spentAmt >= limit;
+      chips.push({
+        label: over ? "Limite ultrapassado" : "Limite quase atingido",
+        value: `${escapeHtml(cat.name)} · ${formatBRL(spentAmt)} / ${formatBRL(limit)}`,
+        cls: over ? "neg" : "warn"
+      });
+    }
+  }
 
   // Biggest single expense
   const biggest = expenses.reduce((a, b) => Number(a.amount) >= Number(b.amount) ? a : b);
@@ -710,6 +748,9 @@ async function openEditModal(tx){
 function watchView(uid){
   if(unsubTx) unsubTx();
 
+  const srch = $("txSearch");
+  if(srch) srch.value = "";
+
   $("monthNav").style.display = (viewMode === "month") ? "flex" : "none";
 
   if(viewMode === "history"){
@@ -1022,6 +1063,17 @@ function wireButtons(){
   }
 }
 
+// ─── Wire: money inputs ───────────────────────────────
+function wireMoneyInputs(){
+  const sanitize = (e) => {
+    e.target.value = e.target.value.replace(/[^0-9,.]/g, "");
+  };
+  ["txAmount", "trAmount", "accInitial", "monthlyBudget"].forEach(id => {
+    const el = $(id);
+    if(el) el.addEventListener("input", sanitize);
+  });
+}
+
 // ─── Wire: forms ──────────────────────────────────────
 function wireForms(){
   $("formAccount").addEventListener("submit", async (e) => {
@@ -1131,6 +1183,7 @@ watchAuth({
     wireSegmented();
     wireButtons();
     wireForms();
+    wireMoneyInputs();
 
     if(unsubSettings) unsubSettings();
     unsubSettings = watchSettings(user.uid, {
@@ -1138,9 +1191,8 @@ watchAuth({
         settings  = data || { monthlyBudget: 0 };
         catLimits = settings.categoryLimits || {};
         const el  = $("monthlyBudget");
-        if(el) el.value = settings.monthlyBudget
-          ? String(settings.monthlyBudget).replace(".", ",")
-          : "";
+        const bv  = Number(settings.monthlyBudget);
+        if(el) el.value = (Number.isFinite(bv) && bv > 0) ? String(bv).replace(".", ",") : "";
       },
       onError: console.error
     });
