@@ -100,7 +100,13 @@
     <!-- ── Charts ── -->
     <section class="charts">
       <div class="chart-card">
-        <h3>Distribuição por categoria</h3>
+        <div class="chart-card__header">
+          <h3>Distribuição por categoria</h3>
+          <div class="segmented mini" role="tablist" aria-label="Tipo do gráfico">
+            <button type="button" class="seg active" data-cat-chart="expense">Saídas</button>
+            <button type="button" class="seg" data-cat-chart="income">Entradas</button>
+          </div>
+        </div>
         <canvas id="chartCategory"></canvas>
         <div id="chartCategoryLegend" class="chart-legend-grid"></div>
       </div>

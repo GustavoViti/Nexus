@@ -47,6 +47,7 @@ let currentUser = null;
 let txType  = "expense";
 let catType = "expense";
 let unsubTx = null;
+let catChartType = "expense";
 
 let accounts    = [];
 let categories  = [];
@@ -509,10 +510,10 @@ function renderCharts(items){
   if(chartCategory) chartCategory.destroy();
   if(chartBalance)  chartBalance.destroy();
 
-  // ── Doughnut: category distribution ──
+  // ── Doughnut: category distribution (expense or income, per catChartType) ──
   const byCategory = {};
   for(const tx of items){
-    if(tx.type !== "expense") continue;
+    if(tx.type !== catChartType) continue;
     const cat = categoryMap.get(tx.categoryId)?.name || "Outros";
     byCategory[cat] = (byCategory[cat] || 0) + (Number(tx.amount) || 0);
   }
@@ -851,6 +852,15 @@ function wireSegmented(){
       btn.classList.add("active");
       viewMode = btn.dataset.view;
       watchView(currentUser.uid);
+    });
+  });
+
+  document.querySelectorAll("[data-cat-chart]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-cat-chart]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      catChartType = btn.dataset.catChart;
+      renderCharts(currentTxList);
     });
   });
 }

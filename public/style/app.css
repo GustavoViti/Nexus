@@ -248,6 +248,15 @@ body {
   text-transform: uppercase; letter-spacing: .7px;
   margin-bottom: 12px;
 }
+.chart-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.chart-card__header h3 { margin-bottom: 0; }
+.chart-card__header .segmented.mini { flex-shrink: 0; }
 .chart-card canvas { width: 100% !important; height: 220px !important; display: block; }
 
 .chart-legend-grid {

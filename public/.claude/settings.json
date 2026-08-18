@@ -6,7 +6,11 @@
       "Bash(node --check script/app.js)",
       "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\" remote -v)",
       "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\" remote -v)",
-      "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\" rev-parse --show-toplevel)"
+      "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\" rev-parse --show-toplevel)",
+      "WebFetch(domain:www.pluggy.ai)",
+      "WebFetch(domain:comunidade.sejaefi.com.br)",
+      "WebFetch(domain:docs.pluggy.ai)",
+      "Bash(node --check \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\\\\script\\\\app.js\")"
     ]
   }
 }
