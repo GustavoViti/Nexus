@@ -572,29 +572,47 @@ function renderCharts(items){
       if(tx.type === "income")  inc += amt;
       else                      exp += amt;
     }
-    return { label: monthShort(d), net: inc - exp };
+    return { label: monthShort(d), inc, exp };
   });
 
   chartBalance = new Chart(ctxBal, {
-    type: "line",
+    type: "bar",
     data: {
       labels: monthData.map(m => m.label),
-      datasets: [{
-        label: "Saldo mensal",
-        data: monthData.map(m => m.net),
-        borderColor: "#6366F1",
-        backgroundColor: "rgba(99,102,241,.12)",
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: "#6366F1",
-        pointBorderColor: "rgba(8,11,18,.9)",
-        pointBorderWidth: 2,
-        pointRadius: 5,
-        pointHoverRadius: 7,
-      }]
+      datasets: [
+        {
+          label: "Entradas",
+          data: monthData.map(m => m.inc),
+          backgroundColor: "#22C55E",
+          borderRadius: 4,
+          maxBarThickness: 22,
+        },
+        {
+          label: "Saídas",
+          data: monthData.map(m => m.exp),
+          backgroundColor: "#EF4444",
+          borderRadius: 4,
+          maxBarThickness: 22,
+        },
+      ]
     },
     options: {
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: "#8B95B0", boxWidth: 10, boxHeight: 10, padding: 16 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${formatBRL(ctx.parsed.y)}`,
+            afterBody: ctx => {
+              const i = ctx[0].dataIndex;
+              const { inc, exp } = monthData[i];
+              return `Saldo: ${formatBRL(inc - exp)}`;
+            }
+          }
+        }
+      },
       scales: {
         y: {
           ticks: { color: "#8B95B0", callback: v => formatBRL(v) },

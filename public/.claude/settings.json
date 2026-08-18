@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes serve -l 5500 .)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5500/app.html)",
+      "Bash(node --check script/app.js)",
+      "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\" remote -v)",
+      "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\" remote -v)",
+      "Bash(git -C \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\" rev-parse --show-toplevel)"
+    ]
+  }
+}
