@@ -4,6 +4,10 @@ import {
   createAccount,
   updateAccount,
   deleteAccount,
+  createAccountCategory,
+  listAccountCategories,
+  watchAccountCategories,
+  deleteAccountCategory,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -30,6 +34,7 @@ let chartBalance  = null;
 let unsubBalances = null;
 let unsubAccounts = null;
 let unsubSettings = null;
+let unsubAccountCategories = null;
 
 let allTxCache = [];
 let currentTxList = [];
@@ -53,6 +58,9 @@ let accounts    = [];
 let categories  = [];
 let accountMap  = new Map();
 let categoryMap = new Map();
+
+let accountCategories    = [];
+let accountCategoryMap   = new Map();
 
 // ─── Modal helpers ───────────────────────────────────
 function openModal(id)  { $(id).classList.add("show");    $(id).setAttribute("aria-hidden","false"); }
@@ -183,6 +191,54 @@ async function refreshSelects(uid){
   selCat.innerHTML = filtered.length
     ? filtered.map(c => `<option value="${c.id}">${c.name}</option>`).join("")
     : `<option value="" disabled selected>Crie uma categoria (${txType === "expense" ? "saída" : "entrada"})</option>`;
+}
+
+// ─── Account categories ────────────────────────────────
+function renderAccountCategorySelects(){
+  const options = `<option value="">Sem categoria</option>` +
+    accountCategories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+
+  ["accCategory", "editAccCategory"].forEach(id => {
+    const el = $(id);
+    if(!el) return;
+    const prev = el.value;
+    el.innerHTML = options;
+    if(accountCategoryMap.has(prev)) el.value = prev;
+  });
+}
+
+async function renderAccCatList(){
+  const el = $("accCatList");
+  if(!el) return;
+
+  if(!accountCategories.length){
+    el.innerHTML = `<div class="muted" style="padding:16px">Nenhuma categoria de conta.</div>`;
+    return;
+  }
+
+  const trashIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  el.innerHTML = accountCategories.map(c => `
+    <div class="catitem">
+      <span class="catitem__name">${escapeHtml(c.name)}</span>
+      <button class="catitem__del" data-del-acccat="${c.id}" aria-label="Excluir ${escapeHtml(c.name)}">${trashIcon}</button>
+    </div>
+  `).join("");
+
+  el.querySelectorAll("[data-del-acccat]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id   = btn.dataset.delAcccat;
+      const name = btn.closest(".catitem")?.querySelector(".catitem__name")?.textContent || "esta categoria";
+      if(!confirm(`Excluir "${name}"? As contas dessa categoria ficam sem categoria.`)) return;
+      try{
+        await deleteAccountCategory(currentUser.uid, id);
+        await renderAccCatList();
+      }catch(e){
+        console.error(e);
+        alert(e.message || "Falha ao excluir.");
+      }
+    });
+  });
 }
 
 // ─── Search / filter ──────────────────────────────────
@@ -419,9 +475,10 @@ function renderAccounts(balances){
     return;
   }
 
-  grid.innerHTML = accounts.map(a => {
-    const bal = balances.get(a.id) ?? (Number(a.initialBalance) || 0);
+  const accCard = (a) => {
+    const bal   = balances.get(a.id) ?? (Number(a.initialBalance) || 0);
     const isPos = bal >= 0;
+    const cat   = accountCategoryMap.get(a.categoryId);
     return `
       <div class="acc" data-acc-id="${a.id}" style="cursor:pointer;" title="Clique para editar">
         <div class="acc__top">
@@ -429,8 +486,41 @@ function renderAccounts(balances){
             <div class="acc__name">${escapeHtml(a.name)}</div>
             <div class="acc__type">${escapeHtml(a.type || "")}</div>
           </div>
+          ${cat ? `<div class="acc__cat">${escapeHtml(cat.name)}</div>` : ""}
         </div>
         <div class="acc__bal ${isPos ? "pos" : "neg"}">${formatBRL(bal)}</div>
+      </div>
+    `;
+  };
+
+  // Agrupa por categoria de conta (sem categoria vai por último)
+  const groups = new Map();
+  for(const a of accounts){
+    const cat   = accountCategoryMap.get(a.categoryId);
+    const key   = cat ? cat.id : "__none__";
+    const label = cat ? cat.name : "Sem categoria";
+    if(!groups.has(key)) groups.set(key, { label, items: [] });
+    groups.get(key).items.push(a);
+  }
+
+  const ordered = Array.from(groups.values()).sort((g1, g2) => {
+    if(g1.label === "Sem categoria") return 1;
+    if(g2.label === "Sem categoria") return -1;
+    return 0;
+  });
+
+  grid.innerHTML = ordered.map(g => {
+    const subtotal = g.items.reduce((s, a) => s + (balances.get(a.id) ?? (Number(a.initialBalance) || 0)), 0);
+    const isPos    = subtotal >= 0;
+    return `
+      <div class="accgroup">
+        <div class="accgroup__header">
+          <span class="accgroup__title">${escapeHtml(g.label)}</span>
+          <span class="accgroup__total ${isPos ? "pos" : "neg"}">${formatBRL(subtotal)}</span>
+        </div>
+        <div class="accounts__grid">
+          ${g.items.map(accCard).join("")}
+        </div>
       </div>
     `;
   }).join("");
@@ -448,6 +538,7 @@ function openEditAccountModal(acc){
   editingAccountId = acc.id;
   $("editAccName").value = acc.name || "";
   $("editAccType").value = acc.type || "bank";
+  $("editAccCategory").value = accountCategoryMap.has(acc.categoryId) ? acc.categoryId : "";
   setMsg($("msgEditAccount"), "");
   openModal("modalEditAccount");
 }
@@ -961,6 +1052,18 @@ function wireButtons(){
   $("btnNewCategory").addEventListener("click", () => openModal("modalCategory"));
   $("btnOpenSettings").addEventListener("click",() => openModal("modalSettings"));
 
+  $("btnNewAccCategory").addEventListener("click",     () => openModal("modalAccountCategory"));
+  $("btnNewAccCategoryEdit").addEventListener("click", () => openModal("modalAccountCategory"));
+
+  const btnManageAccountCategories = $("btnManageAccountCategories");
+  if(btnManageAccountCategories){
+    btnManageAccountCategories.addEventListener("click", async () => {
+      closeModal("modalSettings");
+      await renderAccCatList();
+      openModal("modalManageAccountCategories");
+    });
+  }
+
   $("btnLogout").addEventListener("click", async () => {
     await logout();
     window.location.href = "./index.html";
@@ -1040,8 +1143,9 @@ function wireButtons(){
       setMsg(msg, "Salvando...", "ok");
       try{
         await updateAccount(currentUser.uid, editingAccountId, {
-          name: $("editAccName").value.trim(),
-          type: $("editAccType").value,
+          name:       $("editAccName").value.trim(),
+          type:       $("editAccType").value,
+          categoryId: $("editAccCategory").value || null,
         });
         setMsg(msg, "Conta atualizada ✅", "ok");
         setTimeout(() => closeModal("modalEditAccount"), 350);
@@ -1197,6 +1301,7 @@ function wireForms(){
       await createAccount(currentUser.uid, {
         name:           $("accName").value.trim(),
         type:           $("accType").value,
+        categoryId:     $("accCategory").value || null,
         initialBalance: parseMoneyBR($("accInitial").value || "0"),
       });
       await refreshSelects(currentUser.uid);
@@ -1218,6 +1323,25 @@ function wireForms(){
       setMsg(msg, "Categoria criada ✅", "ok");
       e.target.reset();
       setTimeout(() => closeModal("modalCategory"), 350);
+    }catch(err){
+      setMsg(msg, err.message || "Falha.", "err");
+    }
+  });
+
+  $("formAccountCategory").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = $("msgAccountCategory");
+    setMsg(msg, "Salvando...", "ok");
+    try{
+      const ref = await createAccountCategory(currentUser.uid, { name: $("accCatName").value.trim() });
+      setMsg(msg, "Categoria criada ✅", "ok");
+      e.target.reset();
+      setTimeout(() => {
+        closeModal("modalAccountCategory");
+        // pré-seleciona a categoria recém-criada na conta que estava sendo editada/criada
+        const target = document.querySelector(".modal.show #accCategory, .modal.show #editAccCategory");
+        if(target) target.value = ref.id;
+      }, 350);
     }catch(err){
       setMsg(msg, err.message || "Falha.", "err");
     }
@@ -1306,6 +1430,17 @@ watchAuth({
         const el  = $("monthlyBudget");
         const bv  = Number(settings.monthlyBudget);
         if(el) el.value = (Number.isFinite(bv) && bv > 0) ? String(bv).replace(".", ",") : "";
+      },
+      onError: console.error
+    });
+
+    if(unsubAccountCategories) unsubAccountCategories();
+    unsubAccountCategories = watchAccountCategories(user.uid, {
+      onChange: (items) => {
+        accountCategories  = items;
+        accountCategoryMap = new Map(accountCategories.map(c => [c.id, c]));
+        renderAccountCategorySelects();
+        computeAccountBalances();
       },
       onError: console.error
     });

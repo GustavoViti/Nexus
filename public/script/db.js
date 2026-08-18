@@ -16,14 +16,44 @@ export async function deleteTransaction(uid, txId){
   await deleteDoc(ref);
 }
 
-export async function createAccount(uid, { name, type, initialBalance }) {
+export async function createAccount(uid, { name, type, initialBalance, categoryId }) {
   const ref = collection(db, "users", uid, "accounts");
   return addDoc(ref, {
     name,
     type,
+    categoryId: categoryId || null,
     initialBalance: Number(initialBalance || 0),
     createdAt: serverTimestamp(),
   });
+}
+
+export async function createAccountCategory(uid, { name }) {
+  const ref = collection(db, "users", uid, "accountCategories");
+  return addDoc(ref, {
+    name,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function listAccountCategories(uid) {
+  const ref = collection(db, "users", uid, "accountCategories");
+  const snap = await getDocs(query(ref, orderBy("createdAt", "asc")));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export function watchAccountCategories(uid, { onChange, onError }) {
+  const ref = collection(db, "users", uid, "accountCategories");
+  const q = query(ref, orderBy("createdAt", "asc"));
+  return onSnapshot(
+    q,
+    (snap) => onChange?.(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    (err) => onError?.(err)
+  );
+}
+
+export async function deleteAccountCategory(uid, categoryId) {
+  const ref = doc(db, "users", uid, "accountCategories", categoryId);
+  await deleteDoc(ref);
 }
 
 export async function createCategory(uid, { name, type }) {

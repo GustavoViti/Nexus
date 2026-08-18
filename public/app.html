@@ -81,7 +81,7 @@
         <h2>Contas</h2>
         <span class="muted small">Clique para editar</span>
       </div>
-      <div class="accounts__grid" id="accountsGrid"></div>
+      <div class="accounts__groups" id="accountsGrid"></div>
       <div class="budget" id="budgetBox" style="display:none;">
         <div class="budget__top">
           <strong>Meta de gastos do mês</strong>
@@ -253,6 +253,15 @@
             <input class="input" id="accInitial" inputmode="decimal" placeholder="Ex: 1000,00" />
           </div>
         </div>
+        <div class="field">
+          <label class="label">Categoria</label>
+          <div class="select-with-btn">
+            <select class="input" id="accCategory">
+              <option value="">Sem categoria</option>
+            </select>
+            <button type="button" class="iconbtn" id="btnNewAccCategory" aria-label="Nova categoria de conta" title="Nova categoria de conta">+</button>
+          </div>
+        </div>
         <button class="btn" id="btnSaveAccount" type="submit">Salvar</button>
         <div class="msg" id="msgAccount"></div>
       </form>
@@ -280,10 +289,50 @@
             <option value="card">Cartão</option>
           </select>
         </div>
+        <div class="field">
+          <label class="label">Categoria</label>
+          <div class="select-with-btn">
+            <select class="input" id="editAccCategory">
+              <option value="">Sem categoria</option>
+            </select>
+            <button type="button" class="iconbtn" id="btnNewAccCategoryEdit" aria-label="Nova categoria de conta" title="Nova categoria de conta">+</button>
+          </div>
+        </div>
         <button class="btn" type="submit" id="btnSaveEditAccount">Salvar alterações</button>
         <button class="btn secondary" type="button" id="btnDeleteAccount">Excluir conta</button>
         <div class="msg" id="msgEditAccount"></div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Nova Categoria de Conta -->
+  <div class="modal" id="modalAccountCategory" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Nova categoria de conta</h3>
+        <button class="iconbtn" data-close="modalAccountCategory" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form class="form" id="formAccountCategory">
+        <div class="field">
+          <label class="label">Nome</label>
+          <input class="input" id="accCatName" placeholder="Ex: Reserva de Emergência" required />
+        </div>
+        <button class="btn" id="btnSaveAccountCategory" type="submit">Salvar</button>
+        <div class="msg" id="msgAccountCategory"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Gerenciar Categorias de Conta -->
+  <div class="modal" id="modalManageAccountCategories" aria-hidden="true">
+    <div class="modal__panel">
+      <div class="modal__handle"></div>
+      <div class="modal__header">
+        <h3>Categorias de conta</h3>
+        <button class="iconbtn" data-close="modalManageAccountCategories" aria-label="Fechar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="catlist" id="accCatList"></div>
     </div>
   </div>
 
@@ -404,6 +453,7 @@
         </div>
         <button class="btn secondary" id="btnCategoryLimits">Limites por categoria</button>
         <button class="btn secondary" id="btnManageCategories">Gerenciar categorias</button>
+        <button class="btn secondary" id="btnManageAccountCategories">Gerenciar categorias de conta</button>
         <button class="btn secondary" id="btnSeed">Criar categorias padrão</button>
         <p class="muted small">Use isso uma vez pra gerar categorias iniciais.</p>
 
