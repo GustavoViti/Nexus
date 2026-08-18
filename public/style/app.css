@@ -538,6 +538,9 @@ body {
 /* ────────────────── Settings panel ─────────────────── */
 .settings { padding: 4px 16px 8px; display: flex; flex-direction: column; gap: 8px; }
 
+.export-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.export-row .btn { padding: 12px 6px; font-size: 12.5px; }
+
 /* ────────────────── Bottom Nav ─────────────────── */
 .bottom-nav {
   display: none;

@@ -10,7 +10,8 @@
       "WebFetch(domain:www.pluggy.ai)",
       "WebFetch(domain:comunidade.sejaefi.com.br)",
       "WebFetch(domain:docs.pluggy.ai)",
-      "Bash(node --check \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\\\\script\\\\app.js\")"
+      "Bash(node --check \"c:\\\\Users\\\\games\\\\Desktop\\\\Behance\\\\public\\\\script\\\\app.js\")",
+      "WebFetch(domain:cdn.jsdelivr.net)"
     ]
   }
 }

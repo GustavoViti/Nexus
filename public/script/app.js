@@ -683,12 +683,91 @@ function exportCSV(){
 
   const csv  = BOM + header + "\n" + rows.join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `nexus-${new Date().toISOString().slice(0, 10)}.csv`;
+  downloadBlob(blob, `nexus-${new Date().toISOString().slice(0, 10)}.csv`);
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement("a");
+  a.href    = url;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Export JSON ───────────────────────────────────────
+function exportJSON(){
+  const list = viewMode === "history" ? allTxCache : currentTxList;
+  const data = list.map(tx => ({
+    data: tx.date || "",
+    tipo: tx.type === "income" ? "entrada" : "saida",
+    descricao: tx.description || "",
+    valor: Number(tx.amount) || 0,
+    conta: accountMap.get(tx.accountId)?.name || "",
+    categoria: categoryMap.get(tx.categoryId)?.name || "",
+    observacao: tx.notes || "",
+  }));
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8;" });
+  downloadBlob(blob, `nexus-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+// ─── Export PDF ────────────────────────────────────────
+function exportPDF(){
+  const list = viewMode === "history" ? allTxCache : currentTxList;
+
+  let income = 0, expense = 0;
+  for(const tx of list){
+    const amt = Number(tx.amount) || 0;
+    if(tx.type === "income") income += amt; else expense += amt;
+  }
+  const balance = income - expense;
+  const period  = viewMode === "history" ? "Histórico completo" : monthLabel(selectedMonth);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFontSize(16);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Nexus — Relatório Financeiro", 14, 18);
+
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Período: ${period}`, 14, 25);
+  doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 30);
+
+  doc.setFontSize(11);
+  doc.setTextColor(34, 197, 94);
+  doc.text(`Entradas: ${formatBRL(income)}`, 14, 40);
+  doc.setTextColor(239, 68, 68);
+  doc.text(`Saídas: ${formatBRL(expense)}`, 85, 40);
+  doc.setTextColor(...(balance >= 0 ? [34, 197, 94] : [239, 68, 68]));
+  doc.text(`Saldo: ${formatBRL(balance)}`, 150, 40);
+
+  doc.autoTable({
+    startY: 48,
+    head: [["Data", "Tipo", "Descrição", "Categoria", "Conta", "Observação", "Valor"]],
+    body: list.map(tx => [
+      formatDateBR(tx.date || ""),
+      tx.type === "income" ? "Entrada" : "Saída",
+      tx.description || "",
+      categoryMap.get(tx.categoryId)?.name || "",
+      accountMap.get(tx.accountId)?.name || "",
+      tx.notes || "",
+      formatBRL(Number(tx.amount) || 0),
+    ]),
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
+    columnStyles: { 6: { halign: "right" } },
+    didParseCell: (data) => {
+      if(data.section === "body" && data.column.index === 6){
+        const tx = list[data.row.index];
+        data.cell.styles.textColor = tx.type === "income" ? [34, 197, 94] : [239, 68, 68];
+      }
+    },
+  });
+
+  doc.save(`nexus-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // ─── Render category list ─────────────────────────────
@@ -1000,9 +1079,15 @@ function wireButtons(){
     });
   }
 
-  // ── Export CSV ──
+  // ── Export CSV / JSON / PDF ──
   const btnExportCSV = $("btnExportCSV");
   if(btnExportCSV) btnExportCSV.addEventListener("click", () => exportCSV());
+
+  const btnExportJSON = $("btnExportJSON");
+  if(btnExportJSON) btnExportJSON.addEventListener("click", () => exportJSON());
+
+  const btnExportPDF = $("btnExportPDF");
+  if(btnExportPDF) btnExportPDF.addEventListener("click", () => exportPDF());
 
   // ── Category limits ──
   const btnCategoryLimits = $("btnCategoryLimits");
